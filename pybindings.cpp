@@ -14,7 +14,7 @@ extern "C"
     // static PyObject* test(PyObject* self, PyObject* args);
 }
 
-IntMatrix nnd_algorithm(Matrix &points, int k)
+IntMatrix nnd_algorithm(SlowMatrix &points, int k)
 {
     Parms parms;
     parms.data = points;
@@ -23,7 +23,7 @@ IntMatrix nnd_algorithm(Matrix &points, int k)
     return nnd.neighbor_graph;
 }
 
-IntMatrix bfnn_algorithm(Matrix &points, int k)
+IntMatrix bfnn_algorithm(SlowMatrix &points, int k)
 {
     IntMatrix adj_mat = nn_brute_force(points, k);
     return adj_mat;
@@ -81,7 +81,7 @@ static PyObject* test(PyObject* self, PyObject* args)
     // Translate input matrix from Python to C++
     int nrows = PyArray_DIM(mat_in, 0);
     int ncols = PyArray_DIM(mat_in, 1);
-    Matrix pnts (nrows, std::vector<double>(ncols));
+    SlowMatrix pnts (nrows, std::vector<double>(ncols));
 
     for(int i = 0; i < nrows; i++)
     {
@@ -138,7 +138,7 @@ static PyObject* nnd(PyObject* self, PyObject* args)
     // Translate input matrix from Python to C++
     int nrows = PyArray_DIM(mat_in, 0);
     int ncols = PyArray_DIM(mat_in, 1);
-    Matrix pnts (nrows, std::vector<double>(ncols));
+    SlowMatrix pnts (nrows, std::vector<double>(ncols));
 
     for(int i = 0; i < nrows; i++)
     {
@@ -189,7 +189,7 @@ static PyObject* bfnn(PyObject* self, PyObject* args)
     // Translate input matrix from Python to C++
     int nrows = PyArray_DIM(mat_in, 0);
     int ncols = PyArray_DIM(mat_in, 1);
-    Matrix pnts (nrows, std::vector<double>(ncols));
+    SlowMatrix pnts (nrows, std::vector<double>(ncols));
 
     for(int i = 0; i < nrows; i++)
     {

@@ -25,7 +25,11 @@
 Timer timer;
 const double MAX_DOUBLE = std::numeric_limits<double>::max();
 
-inline double euclid_sqr(const std::vector<double> &v0, const std::vector<double> &v1)
+inline double euclid_sqr
+(
+    const std::vector<double> &v0,
+    const std::vector<double> &v1
+)
 {
     double sum = 0.0;
     for (size_t i = 0; i < v0.size(); ++i)
@@ -35,7 +39,8 @@ inline double euclid_sqr(const std::vector<double> &v0, const std::vector<double
     return sum;
 }
 
-inline double dist(
+inline double dist
+(
     const std::vector<double> &v0,
     const std::vector<double> &v1
 )
@@ -77,6 +82,7 @@ std::vector<NNHeap> empty_graph
 // Initializes heaps by choosing nodes randomly.
 void init_random
 (
+    const SlowMatrix &data,
     std::vector<NNHeap> &current_graph,
     size_t k,
     RandomState &rng_state
@@ -88,16 +94,18 @@ void init_random
 
     for (size_t i = 0; i < current_graph.size(); ++i)
     {
+        int missing = k - current_graph[i].valid_idx_size();
         // Sample nodes
-        for (size_t j = 0; j < k; ++j)
+        for (int j = 0; j < missing; ++j)
         {
             int rand_idx = rand_int(rng_state) % current_graph.size();
+            double d = dist(data[i], data[rand_idx]);
             NNNode node = {
                 .idx=rand_idx,
-                .key=MAX_DOUBLE,
+                .key=d,
                 .visited=false
             };
-            current_graph[i].controlled_insert(node);
+            current_graph[i].update_max(node);
         }
         // std::cout << "\nIndex: "<< i << "\n";
     }
@@ -105,7 +113,7 @@ void init_random
 
 // Improves nearest neighbors heaps by a single random projection tree.
 void update_nn_graph_by_rp_tree(
-    const Matrix &data, std::vector<NNHeap> &current_graph, unsigned int leaf_size
+    const SlowMatrix &data, std::vector<NNHeap> &current_graph, unsigned int leaf_size
 )
 {
     // timer.start();
@@ -136,7 +144,7 @@ void update_nn_graph_by_rp_tree(
 
 // Improves nearest neighbors heaps by multiple random projection trees.
 void _update_nn_graph_by_rp_forest(
-    const Matrix &data,
+    const SlowMatrix &data,
     std::vector<NNHeap> &current_graph,
     unsigned int forest_size,
     unsigned int leaf_size
@@ -149,7 +157,7 @@ void _update_nn_graph_by_rp_forest(
 }
 
 void update_nn_graph_by_rp_forest(
-    const Matrix &data,
+    const SlowMatrix &data,
     std::vector<NNHeap> &current_graph,
     std::vector<IntMatrix> &forest
 )
@@ -255,7 +263,7 @@ void set_new_and_old(
 }
 
 int local_join(
-    const Matrix &data,
+    const SlowMatrix &data,
     IntVec &idx_new_nodes,
     IntVec &idx_old_nodes,
     IntVec &idx_new_nodes_r,
@@ -380,7 +388,7 @@ void sample_candidates
     int n_threads
 )
 {
-    print(current_graph);
+    // print(current_graph);
     timer.stop("sample_candidates: start^");
     new_candidates.resize(current_graph.size());
     old_candidates.resize(current_graph.size());
@@ -452,96 +460,160 @@ void sample_candidates
         }
     }
 
-    print(new_candidates);
-    print(old_candidates);
-    timer.stop("sample_candidates: stop^");
+    // print(new_candidates);
+    // print(old_candidates);
+    // timer.stop("sample_candidates: stop^");
 }
 
 
+typedef struct
+{
+    int idx0;
+    int idx1;
+    double dist;
+} NNUpdate;
+
+void print(NNUpdate update)
+{
+    std::cout << "(idx0=" << update.idx0
+              << ", idx1=" << update.idx1
+              << ", dist=" << update.dist
+              << ")";
+}
+
+void print(std::vector<NNUpdate> updates)
+{
+    std::cout << "[";
+    for (size_t i = 0; i < updates.size(); ++i)
+    {
+        if (i > 0)
+        {
+            std::cout << " ";
+        }
+        print(updates[i]);
+        if (i + 1 != updates.size())
+        {
+            std::cout << ",\n";
+        }
+    }
+    std::cout << "]\n";
+}
 
 
-
-int update_nn_graph_by_joining_candidates(
-    const Matrix &data,
+std::vector<NNUpdate> generate_graph_updates(
+    const SlowMatrix &data,
     std::vector<NNHeap> &current_graph,
     std::vector<RandHeap> &new_candidate_neighbors,
     std::vector<RandHeap> &old_candidate_neighbors,
-    int n_threads
+    int verbose
 )
 {
     assert(data.size() == new_candidate_neighbors.size());
     assert(data.size() == old_candidate_neighbors.size());
-    int cnt = 0;
+    std::vector<NNUpdate> updates;
+    for (size_t i = 0; i < new_candidate_neighbors.size(); ++i)
+    {
+        for (size_t j = 0; j < new_candidate_neighbors[i].size(); ++j)
+        {
+            int idx0 = new_candidate_neighbors[i][j].idx;
+            assert(idx0 >= 0);
+            for (size_t k = j + 1; k < new_candidate_neighbors[i].size(); ++k)
+            {
+                int idx1 = new_candidate_neighbors[i][k].idx;
+                assert(idx1 >= 0);
+                double d = dist(data[idx0], data[idx1]);
+                if (
+                    (d < current_graph[idx0].max()) ||
+                    (d < current_graph[idx1].max())
+                )
+                {
+                    NNUpdate update = {idx0, idx1, d};
+                    updates.push_back(update);
+                    // print(update); std::cout << "i="<<i<<" j="<<j<<" k="<<k<<"\n";
+                }
+
+            }
+            for (size_t k = 0; k < old_candidate_neighbors[i].size(); ++k)
+            {
+                int idx1 = old_candidate_neighbors[i][k].idx;
+                assert(idx1 >= 0);
+                double d = dist(data[idx0], data[idx1]);
+                if (
+                    (d < current_graph[idx0][0].key) ||
+                    (d < current_graph[idx1][0].key)
+                )
+                {
+                    NNUpdate update = {idx0, idx1, d};
+                    updates.push_back(update);
+                    // print(update); std::cout << "i="<<i<<" j="<<j<<" k="<<k<<"\n";
+                }
+            }
+        }
+        log(
+            "\t\tGenerate updates" + std::to_string(i + 1) + "/"
+                + std::to_string(new_candidate_neighbors.size()),
+            (verbose && (i % (new_candidate_neighbors.size() / 4) == 0))
+        );
+    }
+
+    return updates;
+}
+
+
+int apply_graph_updates(
+    std::vector<NNHeap> &current_graph,
+    std::vector<NNUpdate> updates,
+    int n_threads
+)
+{
+    int n_changes = 0;
+
     for (int thread = 0; thread < n_threads; ++thread)
     {
-        for (size_t i = 0; i < new_candidate_neighbors.size(); ++i)
+        for (NNUpdate update : updates)
         {
-            for (size_t j = 0; j < new_candidate_neighbors[i].size(); ++j)
+            int idx0 = update.idx0;
+            int idx1 = update.idx1;
+            assert(idx0 >= 0);
+            assert(idx1 >= 0);
+            double d = update.dist;
+            if (idx0 % n_threads == 0)
             {
-                int idx0 = new_candidate_neighbors[i][j].idx;
-                assert(idx0 >= 0);
-                for (size_t k = j + 1; k < new_candidate_neighbors[i].size(); ++k)
-                {
-                    int idx1 = new_candidate_neighbors[i][k].idx;
-                    assert(idx1 >= 0);
-                    double l = dist(data[idx0], data[idx1]);
-                    NNNode u0 = {.idx=idx0, .key=l, .visited=true};
-                    NNNode u1 = {.idx=idx1, .key=l, .visited=true};
-                    cnt += current_graph[u0.idx].update_max(u1);
-                    cnt += current_graph[u1.idx].update_max(u0);
-                }
-                for (size_t k = 0; k < old_candidate_neighbors[i].size(); ++k)
-                {
-                    int idx1 = old_candidate_neighbors[i][k].idx;
-                    assert(idx1 >= 0);
-                    double l = dist(data[idx0], data[idx1]);
-                    NNNode u0 = {.idx=idx0, .key=l, .visited=true};
-                    NNNode u1 = {.idx=idx1, .key=l, .visited=true};
-                    cnt += current_graph[u0.idx].update_max(u1);
-                    cnt += current_graph[u1.idx].update_max(u0);
-                }
+                NNNode u0 = {.idx=idx0, .key=d, .visited=true};
+                NNNode u1 = {.idx=idx1, .key=d, .visited=true};
+                n_changes += current_graph[u0.idx].update_max(u1);
+            }
+            if (idx1 % n_threads == 0)
+            {
+                NNNode u0 = {.idx=idx0, .key=d, .visited=true};
+                NNNode u1 = {.idx=idx1, .key=d, .visited=true};
+                n_changes += current_graph[u1.idx].update_max(u0);
             }
         }
     }
 
-    return cnt;
+    return n_changes;
 }
-
 
 
 
 // TODO do parallel
 void nn_descent(
-    const Matrix &data,
+    const SlowMatrix &data,
     std::vector<NNHeap> &current_graph,
     int n_neighbors,
     RandomState rng_state,
     int max_candidates,
     int n_iters,
     float delta,
-    // bool rp_tree_init,
     bool verbose
 )
 {
     timer.start();
-
     assert(current_graph.size() == data.size());
+
     log("NN descent for " + std::to_string(n_iters) + " iterations", verbose);
 
-    double rho = 1.0;
-    int k_part = n_neighbors * rho;
-
-    if (verbose)
-    {
-        std::cout << "Start with parameters:"
-            << " n_neighbors=" << n_neighbors
-            << " rho=" << rho
-            << " k_part=" << k_part
-            << " delta=" << delta
-            << "\n";
-    }
-
-    int cnt = 0;
     timer.stop("init0");
 
     for (int iter = 0; iter < n_iters; ++iter)
@@ -557,6 +629,9 @@ void nn_descent(
         std::vector<RandHeap> new_candidates;
         std::vector<RandHeap> old_candidates;
         int n_threads = 1;
+
+        timer.start();
+
         sample_candidates(
             current_graph,
             new_candidates,
@@ -566,54 +641,25 @@ void nn_descent(
             n_threads
         );
         timer.stop("sample_candidates");
-        update_nn_graph_by_joining_candidates(
+
+        std::vector<NNUpdate> updates = generate_graph_updates(
             data,
             current_graph,
             new_candidates,
             old_candidates,
+            verbose
+        );
+        // print(updates);
+        timer.stop("generate graph updates");
+
+        int cnt = 0;
+        cnt += apply_graph_updates(
+            current_graph,
+            updates,
             n_threads
         );
-        timer.stop("update by joining candidates");
-        return;
-
-        std::vector<IntVec> visited(data.size());
-        std::vector<IntVec> visited_rev(data.size());
-        std::vector<IntVec> unvisited(data.size());
-        std::vector<IntVec> unvisited_rev(data.size());
-
-        // Define old and new.
-        for (size_t v = 0; v < data.size(); v++)
-        {
-            set_new_and_old(unvisited[v], visited[v], current_graph[v], k_part);
-        }
-
-        // log("\t\tOld and new set.", verbose);
-
-        // Reverse.
-        reverse_neighbours(unvisited_rev, unvisited);
-        reverse_neighbours(visited_rev, visited);
-
-        // log("\t\tReverse done.", verbose);
-
-        // Local joins.
-        cnt = 0;
-        for (size_t v = 0; v < data.size(); v++)
-        {
-            log(
-                "\t\tLocal join: " + std::to_string(v) + "/"
-                    + std::to_string(data.size()),
-                (verbose && (v % (data.size() / 4) == 0))
-            );
-            cnt += local_join(
-                data,
-                unvisited[v],
-                visited[v],
-                unvisited_rev[v],
-                visited_rev[v],
-                current_graph,
-                k_part
-            );
-        }
+        log("\t\t" + std::to_string(cnt) + " updates applied", verbose);
+        timer.stop("apply graph updates");
 
         if (cnt < delta * data.size() * n_neighbors)
         {
@@ -629,7 +675,7 @@ void nn_descent(
     log("NN descent done.", verbose);
 }
 
-IntMatrix nn_brute_force(const Matrix data, int n_neighbors)
+IntMatrix nn_brute_force(const SlowMatrix data, int n_neighbors)
 {
     std::vector<NNHeap> current_graph(data.size());
     for (size_t i = 0; i < data.size(); ++i)
@@ -646,15 +692,16 @@ IntMatrix nn_brute_force(const Matrix data, int n_neighbors)
 
 double recall_accuracy(IntMatrix apx, IntMatrix ect)
 {
+    assert(apx.size() == ect.size());
     int hits = 0;
     int nrows = apx.size();
     int ncols = apx[0].size();
 
-    for (int i = 0; i < nrows; i++)
+    for (size_t i = 0; i < apx.size(); i++)
     {
-        for (int j = 0; j < ncols; ++j)
+        for (size_t j = 0; j < apx[i].size(); ++j)
         {
-            for (int k = 0; k < ncols; ++k)
+            for (size_t k = 0; k < ect[i].size(); ++k)
             {
                 if (apx[i][j] == ect[i][k])
                 {
@@ -669,11 +716,6 @@ double recall_accuracy(IntMatrix apx, IntMatrix ect)
     return (1.0*hits) / (nrows*ncols);
 }
 
-
-
-// NNDescent::NNDescent(cost Matrix data, int k):
-    // NNDescent({.data=data, .n_neighbors=k})
-// {}
 
 NNDescent::NNDescent(Parms parms):
     data(parms.data),
@@ -703,7 +745,7 @@ NNDescent::NNDescent(Parms parms):
     }
     if (n_trees == NONE)
     {
-        n_trees = 5 + (int)std::pow(data.size(), 0.25);
+        n_trees = 5 + (int)std::round(std::pow(data.size(), 0.25));
         // Only so many trees are useful
         n_trees = std::min(32, n_trees);
     }
@@ -711,44 +753,42 @@ NNDescent::NNDescent(Parms parms):
     {
         max_candidates = std::min(60, n_neighbors);
     }
-
+    if (n_iters == NONE)
+    {
+        n_iters = std::max(5, (int)std::round(std::log2(data.size())));
+    }
+    seed_state(rng_state, seed);
     this->start();
 }
 
 
 void NNDescent::start()
 {
-    RandomState rng_state;
-    seed_state(rng_state, seed);
+    current_graph = empty_graph(data.size(), n_neighbors);
+    timer.stop("empty graph");
 
-    current_graph.resize(data.size());
-    timer.stop("resize graph");
-
-    init_random(current_graph, n_neighbors, rng_state);
+    init_random(data, current_graph, n_neighbors, rng_state);
     // ::print(current_graph);
-    timer.stop("random init neighbours");
+    // timer.stop("random init neighbours");
 
     if (verbose)
     {
-        log("Building RP forest with " + std::to_string(leaf_size) + " trees");
+        log("Building RP forest with " + std::to_string(n_trees) + " trees");
     }
     std::vector<IntMatrix> forest = make_forest(
         data, n_trees, leaf_size, rng_state
     );
-    if (verbose)
-    {
-        log("Building RP forest done");
-    }
-
     // ::print(forest);
     timer.stop("make forest");
 
-    // update_nn_graph_by_rp_forest(data, current_graph, forest);
+    if (verbose)
+    {
+        log("Update Graph by  RP forest");
+    }
+    update_nn_graph_by_rp_forest(data, current_graph, forest);
     // ::print(current_graph);
     timer.stop("update graph by rp-tree forest");
 
-    n_iters = 4;
-    max_candidates=30;
     nn_descent(
         data,
         current_graph,
@@ -757,7 +797,6 @@ void NNDescent::start()
         max_candidates,
         n_iters,
         delta,
-        // tree_init,
         verbose
     );
     neighbor_graph = get_index_matrix(current_graph);

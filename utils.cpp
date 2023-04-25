@@ -42,7 +42,6 @@ uint64_t rand_int(RandomState &s)
     return result;
 }
 
-
 namespace RandNumGen
 {
     RandomState rng_state;

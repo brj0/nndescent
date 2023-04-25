@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <random>
 #include <vector>
+#include <valarray>
 #include <chrono>
 #include <string>
 
@@ -17,9 +18,43 @@
  * https://cseweb.ucsd.edu/~dasgupta/papers/rptree-stoc.pdf
  */
 
-typedef std::vector<std::vector<double>> Matrix;
+typedef std::vector<std::vector<double>> SlowMatrix;
 typedef std::vector<int> IntVec;
 typedef std::vector<IntVec> IntMatrix;
+
+template <class T>
+class Matrix
+{
+    public:
+        Matrix(size_t rows, size_t cols);
+        T& operator()(size_t i, size_t j);
+        T operator()(size_t i, size_t j) const;
+
+    private:
+        size_t n_rows;
+        size_t n_cols;
+        std::valarray<T> data;
+};
+
+template <class T>
+Matrix<T>::Matrix(size_t rows, size_t cols)
+    : n_rows(rows),
+    n_cols(cols),
+    data(rows * cols)
+{
+}
+
+template <class T>
+T& Matrix<T>::operator()(size_t i, size_t j)
+{
+    return data[i * n_cols + j];
+}
+
+template <class T>
+T Matrix<T>::operator()(size_t i, size_t j) const
+{
+    return data[i * n_cols + j];
+}
 
 // Timer for debugging
 class Timer
@@ -72,13 +107,16 @@ class Heap
             nodes_(std::vector<NodeType>(n)) {}
         Heap(size_t n, NodeType node):
             nodes_(std::vector<NodeType>(n, node)) {}
+        auto max() {return nodes_[0].key;}
         size_t size() {return nodes_.size();}
+        size_t valid_idx_size();
         void insert(NodeType node);
         void controlled_insert(NodeType node);
         void siftup(int i_node);
         void siftdown(int i_node);
         bool node_in_heap(NodeType &node);
         int update_max(NodeType &node);
+        int replace_max(NodeType &node);
         void update_max(NodeType &node, unsigned int limit);
         NodeType operator [] (int i) const {return nodes_[i];}
         NodeType& operator [] (int i) {return nodes_[i];}
@@ -89,14 +127,14 @@ typedef Heap<RandNode> RandHeap;
 
 IntMatrix make_rp_tree
 (
-    const Matrix &data,
+    const SlowMatrix &data,
     unsigned int leaf_size,
     RandomState &rng_state
 );
 
 void rand_tree_split
 (
-    const Matrix &data,
+    const SlowMatrix &data,
     IntVec &parent,
     IntVec &child0,
     IntVec &child1
@@ -112,8 +150,8 @@ void print(NNHeap heap);
 void print(RandHeap heap);
 void print(std::vector<NNHeap> graph);
 void print(std::vector<RandHeap> graph);
-void print(Matrix matrix);
-void print_map(Matrix matrix);
+void print(SlowMatrix matrix);
+void print_map(SlowMatrix matrix);
 void print(IntMatrix &matrix);
 
 namespace RandNum
@@ -122,7 +160,7 @@ namespace RandNum
 }
 
 std::vector<IntMatrix> make_forest(
-    const Matrix &data,
+    const SlowMatrix &data,
     int n_trees,
     int leaf_size,
     RandomState &rng_state
@@ -194,6 +232,17 @@ bool Heap<NodeType>::node_in_heap(NodeType &node)
 }
 
 template <class NodeType>
+size_t Heap<NodeType>::valid_idx_size()
+{
+    size_t count = std::count_if(
+        nodes_.begin(),
+        nodes_.end(),
+        [&](NodeType const &node){ return node.idx != NONE; }
+    );
+    return count;
+}
+
+template <class NodeType>
 void Heap<NodeType>::insert(NodeType node)
 {
     nodes_.push_back(node);
@@ -215,6 +264,19 @@ template <class NodeType>
 int Heap<NodeType>::update_max(NodeType &node)
 {
     if (node.key >= nodes_[0].key || this->node_in_heap(node))
+    {
+        return 0;
+    }
+    nodes_[0] = node;
+    this->siftdown(0);
+    return 1;
+}
+
+// Replaces max-element by 'node'.
+template <class NodeType>
+int Heap<NodeType>::replace_max(NodeType &node)
+{
+    if (this->node_in_heap(node))
     {
         return 0;
     }
@@ -276,3 +338,24 @@ void print(std::vector<HeapType> graph)
     }
     std::cout << "***************************************\n";
 }
+
+// This C-style implementation of the inner product slightly faster than
+// the inbuilt 'inner_product' function.
+inline double dot_product
+(
+    const std::vector<double> &vec0,
+    const std::vector<double> &vec1
+)
+{
+    // double sum = 0.0;
+    // int size = vec0.size();
+    // const double *arr0 = &vec0[0];
+    // const double *arr1 = &vec1[0];
+    // for (int j = 0; j < size; ++j)
+    // {
+        // sum += arr0[j] * arr1[j];
+    // }
+    // return sum;
+    return std::inner_product(vec0.begin(), vec0.end(), vec1.begin(), 0.0);
+}
+

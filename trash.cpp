@@ -133,6 +133,39 @@ uint32_t xoshiro129ss(RandomState32 &s)
 
 int main()
 {
+    std::vector<double> v0 (1e7);
+    std::vector<double> v1 (1e7);
+    // all_points = [0,1,2,...]
+    std::iota(v0.begin(), v0.end(), 0.0);
+    std::iota(v1.begin(), v1.end(), 1.0);
+
+    std::cout << "v0=" << v0[0] << " " << v0[1] << " ... " << v0[v0.size()-1] << "\n";
+    std::cout << "v1=" << v1[0] << " " << v1[1] << " ... " << v1[v1.size()-1] << "\n";
+
+    double d0;
+    double d1;
+
+    ttest.start();
+    d0 = std::inner_product(v0.begin(), v0.end(), v1.begin(), 0.0);
+    ttest.stop("dot product");
+    std::cout << "dotproduct=" << d0 << "\n";
+
+
+    ttest.start();
+    double *a0 = &v0[0];
+    double *a1 = &v1[0];
+    d1=0;
+    for (int i = 0; i < 1e7; ++i)
+        d1+=a0[i]*a1[i];
+    ttest.stop("dot product 2");
+    std::cout << "dotproduct=" << d1 << "\n";
+
+    ttest.start();
+    d1=dot_product(v0,v1);
+    ttest.stop("dot product 2");
+    std::cout << "dotproduct=" << d1 << "\n";
+
+
     test_csv();
 
     Timer ttyp;
@@ -269,3 +302,121 @@ int main()
    return 0;
 }
 
+// TODO do parallel
+void nn_descent(
+    const Matrix &data,
+    std::vector<NNHeap> &current_graph,
+    int n_neighbors,
+    RandomState rng_state,
+    int max_candidates,
+    int n_iters,
+    float delta,
+    // bool rp_tree_init,
+    bool verbose
+)
+{
+    timer.start();
+
+    assert(current_graph.size() == data.size());
+    log("NN descent for " + std::to_string(n_iters) + " iterations", verbose);
+
+    double rho = 1.0;
+    int k_part = n_neighbors * rho;
+
+    if (verbose)
+    {
+        std::cout << "Start with parameters:"
+            << " n_neighbors=" << n_neighbors
+            << " rho=" << rho
+            << " k_part=" << k_part
+            << " delta=" << delta
+            << "\n";
+    }
+
+    int cnt = 0;
+    timer.stop("init0");
+
+    for (int iter = 0; iter < n_iters; ++iter)
+    {
+        log(
+            (
+                "\t" + std::to_string(iter + 1) + "  /  "
+                + std::to_string(n_iters)
+            ),
+            verbose
+        );
+
+        std::vector<RandHeap> new_candidates;
+        std::vector<RandHeap> old_candidates;
+        int n_threads = 1;
+        sample_candidates(
+            current_graph,
+            new_candidates,
+            old_candidates,
+            max_candidates,
+            rng_state,
+            n_threads
+        );
+        timer.stop("sample_candidates");
+        update_nn_graph_by_joining_candidates(
+            data,
+            current_graph,
+            new_candidates,
+            old_candidates,
+            n_threads
+        );
+        timer.stop("update by joining candidates");
+        return;
+
+        std::vector<IntVec> visited(data.size());
+        std::vector<IntVec> visited_rev(data.size());
+        std::vector<IntVec> unvisited(data.size());
+        std::vector<IntVec> unvisited_rev(data.size());
+
+        // Define old and new.
+        for (size_t v = 0; v < data.size(); v++)
+        {
+            set_new_and_old(unvisited[v], visited[v], current_graph[v], k_part);
+        }
+
+        // log("\t\tOld and new set.", verbose);
+
+        // Reverse.
+        reverse_neighbours(unvisited_rev, unvisited);
+        reverse_neighbours(visited_rev, visited);
+
+        // log("\t\tReverse done.", verbose);
+
+        // Local joins.
+        cnt = 0;
+        for (size_t v = 0; v < data.size(); v++)
+        {
+            log(
+                "\t\tLocal join: " + std::to_string(v) + "/"
+                    + std::to_string(data.size()),
+                (verbose && (v % (data.size() / 4) == 0))
+            );
+            cnt += local_join(
+                data,
+                unvisited[v],
+                visited[v],
+                unvisited_rev[v],
+                visited_rev[v],
+                current_graph,
+                k_part
+            );
+        }
+
+        if (cnt < delta * data.size() * n_neighbors)
+        {
+            log(
+                "Stopping threshold met -- exiting after "
+                    + std::to_string(iter) + " iterations",
+                verbose
+            );
+            break;
+        }
+    }
+
+    log("NN descent done.", verbose);
+}

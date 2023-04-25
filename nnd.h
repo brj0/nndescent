@@ -5,7 +5,7 @@
 #include "utils.h"
 
 void nn_descent(
-    Matrix &data,
+    SlowMatrix &data,
     std::vector<NNHeap> &current_graph,
     int n_neighbors,
     int max_candidates=50,
@@ -14,7 +14,7 @@ void nn_descent(
     bool rp_tree_init=true,
     bool verbose=true
 );
-IntMatrix nn_brute_force(Matrix data, int k);
+IntMatrix nn_brute_force(SlowMatrix data, int k);
 double recall_accuracy(IntMatrix apx, IntMatrix ect);
 inline double dist(
     const std::vector<double> &v0,
@@ -23,7 +23,7 @@ inline double dist(
 
 struct Parms
 {
-    Matrix data;
+    SlowMatrix data;
     std::string metric="euclidean";
     // metric_kwds=NULL;
     int n_neighbors=30;
@@ -50,7 +50,7 @@ struct Parms
 class NNDescent
 {
     private:
-        const Matrix data;
+        const SlowMatrix data;
         std::string metric="euclidean";
         // metric_kwds=NULL;
         int n_neighbors=30;
@@ -73,9 +73,10 @@ class NNDescent
         bool verbose=false;
 
         std::vector<NNHeap> current_graph;
+        RandomState rng_state;
 
     public:
-        NNDescent(Matrix input_data, int k);
+        NNDescent(SlowMatrix input_data, int k);
         NNDescent(Parms parms);
         int data_size() {return this->data.size();}
         void print();

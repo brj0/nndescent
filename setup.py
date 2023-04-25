@@ -18,7 +18,7 @@ module = Extension(
     sources=["utils.cpp", "dtypes.cpp", "nnd.cpp", "pybindings.cpp"],
     # sources=["utils.cpp", "dtypes.cpp", "nnd.cpp", "pybind11ings.cpp"],
     include_dirs=include_dirs,
-    extra_compile_args =["-O3"],
+    extra_compile_args =["-O3", "-march=native"],
     language="c++",
 )
 

@@ -119,7 +119,8 @@ plt.show()
 
 # import pynndescent
 # index = pynndescent.NNDescent(data, verbose=True)
-# timer.start(); index = pynndescent.NNDescent(data, leaf_size=30, n_trees=1, n_iters=0, verbose=True); timer.stop()
+# timer.start(); index = pynndescent.NNDescent(data, leaf_size=k, verbose=True); timer.stop()
+# timer.start(); index = pynndescent.NNDescent(data, leaf_size=k, n_trees=1, n_iters=0, verbose=True); timer.stop()
 # nnd = index.neighbor_graph[0]
 
 # index.prepare()
@@ -155,12 +156,14 @@ plt.show()
 # n_jobs=None
 # compressed=False
 # parallel_batch_queries=False
-# verbose=False
+# verbose=True
 
 
 
 
+# timer.start(); self._rp_forest = make_forest( data, n_neighbors, n_trees, leaf_size, self.rng_state, current_random_state, self.n_jobs, self._angular_trees,); timer.stop("make forest")
 
+# timer.start(); self._rp_forest = make_forest( data, n_neighbors, n_trees, leaf_size, self.rng_state, current_random_state, self.n_jobs, self._angular_trees,); timer.stop()
 
 
 # data = check_array(data, dtype=np.float32, accept_sparse="csr", order="C")
@@ -172,3 +175,21 @@ plt.show()
 
 # timer.start(); euclidean_random_projection_split(data, indices, rng_state); timer.stop()
 
+
+# timer.start(); make_euclidean_tree( data, indices, hyperplanes, offsets, children, point_indices, rng_state, leaf_size,); timer.stop()
+
+
+import numba
+@numba.njit
+def dot():
+    dim = 1e7
+    hyperplane_offset = 0.0
+    v0 = np.arange(0, dim, 1,  dtype=np.float32)
+    v1 = np.arange(1, dim+1, 1, dtype=np.float32)
+    cumsum=0
+    for d in range(dim):
+        cumsum += v0[d] * v1[d]
+    return cumsum
+
+
+timer.start(); dot(); timer.stop("dot")

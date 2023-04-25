@@ -13,13 +13,13 @@ namespace py = pybind11;
 
 const std::string MODULE_VERSION = "0.0.0";
 
-IntMatrix nnd_algorithm(Matrix &points, int k)
+IntMatrix nnd_algorithm(SlowMatrix &points, int k)
 {
     IntMatrix adj_mat = nn_descent(points, k);
     return adj_mat;
 }
 
-IntMatrix bfnn_algorithm(Matrix &points, int k)
+IntMatrix bfnn_algorithm(SlowMatrix &points, int k)
 {
     IntMatrix adj_mat = nn_brute_force(points, k);
     return adj_mat;
@@ -67,7 +67,7 @@ py::array_t<int> test(py::array_t<double> py_pnts, int k)
     int nrows = buf.shape[0];
     int ncols = buf.shape[1];
 
-    Matrix pnts (nrows, std::vector<double>(ncols));
+    SlowMatrix pnts (nrows, std::vector<double>(ncols));
     for(int i = 0; i < nrows; i++)
     {
         for (int j = 0; j < ncols; ++j)
@@ -105,7 +105,7 @@ py::array_t<int> nnd(py::array_t<double> py_pnts, int k)
     // Translate input matrix from Python to C++
     int nrows = buf.shape[0];
     int ncols = buf.shape[1];
-    Matrix pnts (nrows, std::vector<double>(ncols));
+    SlowMatriSlowMatrix pnts (nrows, std::vector<double>(ncols));
     // pnts = py_pnts.cast<std::vector<std::vector<double>>>();
     for(int i = 0; i < nrows; i++)
     {
