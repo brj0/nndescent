@@ -30,7 +30,7 @@ class Timer:
 timer = Timer()
 
 # Data
-pnts = np.double(
+pnts = np.array(
     [
         [1, 10],
         [17, 5],
@@ -48,23 +48,25 @@ pnts = np.double(
         [9, 32],
         [52, 32],
         [67, 33],
-    ]
+    ],
+    dtype=np.float32,
 )
 
-pnts2 = np.double(
-    [[random.randint(0, 100) for dim in range(10)] for size in range(300)]
+pnts2 = np.array(
+    [[random.randint(0, 100) for dim in range(10)] for size in range(300)],
+    dtype=np.float32,
 )
 
-pnts3 = np.double(np.random.randint(2, size=(1300, 500)))
-# pnts4 = np.double(np.random.randint(2, size=(30_000, 5_000)))
-pnts5 = np.double(np.random.randint(2, size=(208, 3339)))
+pnts3 = np.array(np.random.randint(2, size=(1300, 500)), dtype=np.float32)
+# pnts4 = np.array(np.random.randint(2, size=(30_000, 5_000)))
+pnts5 = np.array(np.random.randint(2, size=(208, 3339)), dtype=np.float32)
 # t=time.time(); x=nndescent.test(pnts4, 30); print(time.time()-t)
 data_NR = np.loadtxt(
     os.path.expanduser(
             "~/Dropbox/WorkHome/programming/nnd/data/NR208x3339.csv"
     ),
     delimiter=",",
-    dtype="float64",
+    dtype=np.float32,
     # dtype=str,
 )
 
@@ -100,14 +102,15 @@ fmnist_train, fmnist_test, _ = get_ann_benchmark_data(
 )
 
 
-k = 30
+k = 4
 data = data_NR
+data = pnts
 # data = np.double(fmnist_train)
 timer.start(); bf = nndescent.bfnn(data, k); timer.stop()
 timer.start(); nnd = nndescent.nnd(data, k); timer.stop()
 # t = nndescent.test(pnts, k)
 tree_index = KDTree(data)
-kdt = tree_index.query(data, k=k + 1)[1]
+kdt = tree_index.query(data, k=k)[1]
 
 accuracy_stats = accuracy(nnd, kdt)
 print(f"Average accuracy of {np.mean(accuracy_stats)}")
@@ -191,5 +194,16 @@ def dot():
         cumsum += v0[d] * v1[d]
     return cumsum
 
-
 timer.start(); dot(); timer.stop("dot")
+
+@numba.njit
+def dota(data):
+    size = data.shape[0]
+    dim = data.shape[1]
+    cumsum=0
+    for i in range(size):
+        for d in range(dim):
+            cumsum += data[0,d] * data[i,d]
+    return cumsum
+
+timer.start(); dota(data); timer.stop("dot")

@@ -15,10 +15,11 @@ include_dirs = [
 
 module = Extension(
     name="nndescent",
-    sources=["utils.cpp", "dtypes.cpp", "nnd.cpp", "pybindings.cpp"],
+    sources=["utils.cpp", "dtypes.cpp", "rp_trees.cpp", "nnd.cpp", "pybindings.cpp"],
     # sources=["utils.cpp", "dtypes.cpp", "nnd.cpp", "pybind11ings.cpp"],
     include_dirs=include_dirs,
-    extra_compile_args =["-O3", "-march=native"],
+    extra_compile_args =["-O3", "-march=native", "-fopenmp"],
+    extra_link_args = ["-fopenmp"],
     language="c++",
 )
 

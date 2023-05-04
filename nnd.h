@@ -4,26 +4,30 @@
 #include "dtypes.h"
 #include "utils.h"
 
-void nn_descent(
-    SlowMatrix &data,
-    std::vector<NNHeap> &current_graph,
+void nn_descent
+(
+    const Matrix<float> &data,
+    HeapList<float> &current_graph,
     int n_neighbors,
-    int max_candidates=50,
-    int n_iters=10,
-    float delta=0.001f,
-    bool rp_tree_init=true,
-    bool verbose=true
+    RandomState rng_state,
+    int max_candidates,
+    int n_iters,
+    float delta,
+    bool verbose
 );
-IntMatrix nn_brute_force(SlowMatrix data, int k);
-double recall_accuracy(IntMatrix apx, IntMatrix ect);
-inline double dist(
-    const std::vector<double> &v0,
-    const std::vector<double> &v1
+
+float recall_accuracy(Matrix<int> apx, Matrix<int> ect);
+
+inline float dist
+(
+    const Matrix<float> &data,
+    size_t row0,
+    size_t row1
 );
 
 struct Parms
 {
-    SlowMatrix data;
+    Matrix<float> data;
     std::string metric="euclidean";
     // metric_kwds=NULL;
     int n_neighbors=30;
@@ -40,17 +44,19 @@ struct Parms
     int max_candidates=NONE;
     int n_iters=NONE;
     float delta=0.001;
-    int n_jobs=NONE;
+    int n_threads=NONE;
     bool compressed=false;
     bool parallel_batch_queries=false;
     bool verbose=false;
+
+    std::string algorithm="nnd";
 };
 
 
 class NNDescent
 {
     private:
-        const SlowMatrix data;
+        const Matrix<float> data;
         std::string metric="euclidean";
         // metric_kwds=NULL;
         int n_neighbors=30;
@@ -67,19 +73,24 @@ class NNDescent
         int max_candidates=NONE;
         int n_iters=NONE;
         float delta=0.001;
-        int n_jobs=NONE;
+        int n_threads=NONE;
         bool compressed=false;
         bool parallel_batch_queries=false;
         bool verbose=false;
 
-        std::vector<NNHeap> current_graph;
+        std::string algorithm="nnd";
         RandomState rng_state;
 
     public:
-        NNDescent(SlowMatrix input_data, int k);
+        HeapList<float> current_graph;
+
+        NNDescent(Matrix<float> input_data, int k);
         NNDescent(Parms parms);
-        int data_size() {return this->data.size();}
+        int data_size() {return data.nrows();}
         void print();
-        IntMatrix neighbor_graph;
+        Matrix<int> neighbor_graph;
+        Matrix<int> bf_graph;
+        Matrix<int> brute_force();
         void start();
+        friend std::ostream& operator<<(std::ostream &out, const NNDescent &nnd);
 };

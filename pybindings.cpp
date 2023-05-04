@@ -4,6 +4,7 @@
 #include <vector>
 #include <iostream>
 #include "nnd.h"
+#include "dtypes.h"
 
 extern "C"
 {
@@ -14,7 +15,7 @@ extern "C"
     // static PyObject* test(PyObject* self, PyObject* args);
 }
 
-IntMatrix nnd_algorithm(SlowMatrix &points, int k)
+Matrix<int> nnd_algorithm(Matrix<float> &points, int k)
 {
     Parms parms;
     parms.data = points;
@@ -23,10 +24,14 @@ IntMatrix nnd_algorithm(SlowMatrix &points, int k)
     return nnd.neighbor_graph;
 }
 
-IntMatrix bfnn_algorithm(SlowMatrix &points, int k)
+Matrix<int> bfnn_algorithm(Matrix<float> &points, int k)
 {
-    IntMatrix adj_mat = nn_brute_force(points, k);
-    return adj_mat;
+    Parms parms;
+    parms.data = points;
+    parms.n_neighbors = k;
+    parms.algorithm = "bf";
+    NNDescent nnd = NNDescent(parms);
+    return nnd.neighbor_graph;
 }
 
 int Cfib(int n)
@@ -48,18 +53,18 @@ static PyObject* fib(PyObject* self, PyObject* args)
     return Py_BuildValue("i", Cfib(n));
 }
 
-PyObject *to_py(std::vector<NNHeap> heap)
-{
-    int nrows = (int) heap.size();
-    int ncols = (int) heap[0].size();
-    double *data= (double*) malloc(sizeof(double)*nrows*ncols);
-    npy_intp dims[] = {nrows, ncols};
-    // TODO ...
-    PyObject *pyobj = PyArray_SimpleNewFromData(
-        2, dims, NPY_DOUBLE, (void*) data
-    );
-    return pyobj;
-}
+// PyObject *to_py(std::vector<NNHeap> heap)
+// {
+    // int nrows = (int) heap.size();
+    // int ncols = (int) heap[0].size();
+    // double *data= (double*) malloc(sizeof(double)*nrows*ncols);
+    // npy_intp dims[] = {nrows, ncols};
+    // // TODO ...
+    // PyObject *pyobj = PyArray_SimpleNewFromData(
+        // 2, dims, NPY_DOUBLE, (void*) data
+    // );
+    // return pyobj;
+// }
 
 static PyObject* test(PyObject* self, PyObject* args)
 {
@@ -72,22 +77,22 @@ static PyObject* test(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    if (PyArray_TYPE(mat_in) != NPY_DOUBLE)
+    if (PyArray_TYPE(mat_in) != NPY_FLOAT)
     {
-        PyErr_SetString(PyExc_TypeError, "Array must be of type double.");
+        PyErr_SetString(PyExc_TypeError, "Array must be of type float.");
         return NULL;
     }
 
     // Translate input matrix from Python to C++
     int nrows = PyArray_DIM(mat_in, 0);
     int ncols = PyArray_DIM(mat_in, 1);
-    SlowMatrix pnts (nrows, std::vector<double>(ncols));
+    Matrix<float> pnts (nrows, ncols);
 
     for(int i = 0; i < nrows; i++)
     {
         for (int j = 0; j < ncols; ++j)
         {
-            pnts[i][j] = *(double*)(PyArray_GETPTR2(mat_in, i, j));
+            pnts(i, j) = *(float*)(PyArray_GETPTR2(mat_in, i, j));
         }
     }
 
@@ -129,39 +134,42 @@ static PyObject* nnd(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    if (PyArray_TYPE(mat_in) != NPY_DOUBLE)
+    if (PyArray_TYPE(mat_in) != NPY_FLOAT)
     {
-        PyErr_SetString(PyExc_TypeError, "Array must be of type double.");
+        PyErr_SetString(PyExc_TypeError, "Array must be of type float.");
         return NULL;
     }
 
     // Translate input matrix from Python to C++
     int nrows = PyArray_DIM(mat_in, 0);
     int ncols = PyArray_DIM(mat_in, 1);
-    SlowMatrix pnts (nrows, std::vector<double>(ncols));
+    Matrix<float> pnts (nrows, ncols);
 
     for(int i = 0; i < nrows; i++)
     {
         for (int j = 0; j < ncols; ++j)
         {
-            pnts[i][j] = *(double*)(PyArray_GETPTR2(mat_in, i, j));
+            pnts(i, j) = *(float*)(PyArray_GETPTR2(mat_in, i, j));
         }
     }
 
     // Next neighbour descent algorithm
-    IntMatrix nn_mat = nnd_algorithm(pnts, k);
-    nrows = nn_mat.size();
-    ncols = nn_mat[0].size();
+    Matrix<int> nn_mat = nnd_algorithm(pnts, k);
+    nrows = nn_mat.nrows();
+    ncols = nn_mat.ncols();
 
-    int *data = new int[nrows * nn_mat[0].size()];
-    for(int i = 0; i < nrows; i++)
-    {
-        for (int j = 0; j < ncols; ++j)
-        {
-            data[i*ncols + j] = nn_mat[i][j];
-        }
-    }
-    npy_intp dims[] = {nn_mat.size(), nn_mat[0].size()};
+    int *data = new int[nrows * ncols];
+    std::copy(nn_mat.val.begin(), nn_mat.val.end(), data);
+
+    // int *data = new int[nrows * nn_mat[0].size()];
+    // for(int i = 0; i < nrows; i++)
+    // {
+        // for (int j = 0; j < ncols; ++j)
+        // {
+            // data[i*ncols + j] = nn_mat[i][j];
+        // }
+    // }
+    npy_intp dims[] = {(int)nn_mat.nrows(), (int)nn_mat.ncols()};
     PyObject *mat_out = PyArray_SimpleNewFromData(
         2, dims, NPY_INT, (void*) data
     );
@@ -180,39 +188,41 @@ static PyObject* bfnn(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    if (PyArray_TYPE(mat_in) != NPY_DOUBLE)
+    if (PyArray_TYPE(mat_in) != NPY_FLOAT)
     {
-        PyErr_SetString(PyExc_TypeError, "Array must be of type double.");
+        PyErr_SetString(PyExc_TypeError, "Array must be of type float.");
         return NULL;
     }
 
     // Translate input matrix from Python to C++
     int nrows = PyArray_DIM(mat_in, 0);
     int ncols = PyArray_DIM(mat_in, 1);
-    SlowMatrix pnts (nrows, std::vector<double>(ncols));
+    Matrix<float> pnts (nrows, ncols);
 
     for(int i = 0; i < nrows; i++)
     {
         for (int j = 0; j < ncols; ++j)
         {
-            pnts[i][j] = *(double*)(PyArray_GETPTR2(mat_in, i, j));
+            pnts(i, j) = *(float*)(PyArray_GETPTR2(mat_in, i, j));
         }
     }
 
     // Next neighbour descent algorithm
-    IntMatrix nn_mat = bfnn_algorithm(pnts, k);
-    nrows = nn_mat.size();
-    ncols = nn_mat[0].size();
+    Matrix<int> nn_mat = bfnn_algorithm(pnts, k);
+    std::cout << nn_mat;
+    nrows = nn_mat.nrows();
+    ncols = nn_mat.ncols();
 
-    int *data = new int[nrows * nn_mat[0].size()];
-    for(int i = 0; i < nrows; i++)
-    {
-        for (int j = 0; j < ncols; ++j)
-        {
-            data[i*ncols + j] = nn_mat[i][j];
-        }
-    }
-    npy_intp dims[] = {nn_mat.size(), nn_mat[0].size()};
+    int *data = new int[nrows * ncols];
+    std::copy(nn_mat.val.begin(), nn_mat.val.end(), data);
+    // for(int i = 0; i < nrows; i++)
+    // {
+        // for (int j = 0; j < ncols; ++j)
+        // {
+            // data[i*ncols + j] = nn_mat(i,j);
+        // }
+    // }
+    npy_intp dims[] = {(int)nn_mat.nrows(), (int)nn_mat.ncols()};
     PyObject *mat_out = PyArray_SimpleNewFromData(
         2, dims, NPY_INT, (void*) data
     );
