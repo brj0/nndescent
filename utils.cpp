@@ -41,8 +41,3 @@ uint64_t rand_int(RandomState &s)
     s[3] = ((s[3] << 45) | (s[3] >> 19));
     return result;
 }
-
-namespace RandNumGen
-{
-    RandomState rng_state;
-}

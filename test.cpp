@@ -1,12 +1,11 @@
-#include <iostream>
 #include <chrono>
-#include <numeric>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <random>
 
+#include <utility>
 
 #include "dtypes.h"
 #include "nnd.h"
@@ -57,9 +56,9 @@ void test_csv()
 {
     ttest.start();
     // std::string file_path = "data/data16x2.csv";
-    // std::string file_path = "data/NR208x3339.csv";
-    std::string file_path = (std::string)getenv("HOME")
-        + "/Downloads/fmnist_train.csv";
+    std::string file_path = "data/NR208x3339.csv";
+    // std::string file_path = (std::string)getenv("HOME")
+        // + "/Downloads/fmnist_train.csv";
     Matrix<float> data = read_csv(file_path);
     // std::cout << data;
     ttest.stop("Reading csv");
@@ -69,7 +68,7 @@ void test_csv()
     Parms parms;
     parms.data=data;
     parms.n_neighbors=k;
-    // parms.n_iters=0;
+    // parms.n_iters=1;
     // parms.n_trees=0;
     parms.verbose=true;
     parms.seed=1234;
@@ -109,6 +108,58 @@ void test_csv()
 int main()
 {
     test_csv();
+
+    // IntVec v0 = {2,2,2,2,5,6,7,8};
+    // IntVec v1 = {2,2,3,4,5,6,7,8};
+    // IntVec v2 = {0,1,4,4,5,6,7,8};
+    // IntVec v3 = {0,2,3,5,7,7,8,8};
+    // std::cout << "vectors=" << v0 << "\n";
+    // IntMatrix m = {v0,v1,v2,v3};
+    // std::cout << "mat=" << m << "\n";
+
+    // std::vector<float> v4 = {
+        // 0,1,-2,3,
+        // 1,2,2,4,
+        // 0,9,2,0
+    // };
+
+    // Matrix<float> mtx(3,v4);
+    // std::cout << "m=" << mtx;
+    // std::cout << "distance="
+        // << bray_curtis(mtx.begin(0), mtx.end(0), mtx.begin(2))
+        // << "\n";
+
+    // int N = 60000*800;
+
+    // std::vector<float> val (N);
+    // std::iota(val.begin(), val.end(), 0.0);
+
+    // Matrix<float> data(60000,val);
+
+
+    // ttest.start();
+    // double d0;
+    // for (int k = 0; k < 10000; ++k)
+    // {
+        // for (int i = 0; i < 800; ++i)
+        // {
+            // d0 = dist(data, 0, i);
+        // }
+    // }
+    // ttest.stop("dot product");
+    // std::cout << "dotproduct=" << d0 << "\n";
+
+    // ttest.start();
+    // double d0;
+    // for (int k = 0; k < 10000; ++k)
+    // {
+        // for (int i = 0; i < 800; ++i)
+        // {
+            // // d0 = squared_euclidean(data.begin(0), data.end(0), data.begin(i));
+        // }
+    // }
+    // ttest.stop("dot product");
+    // std::cout << "dotproduct=" << d0 << "\n";
 
 
     return 0;

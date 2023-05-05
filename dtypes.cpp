@@ -1,36 +1,8 @@
-#include <chrono>
 #include <iostream>
-#include <limits>
-#include <random>
 #include <string>
 
 #include "dtypes.h"
 
-Timer timer_dtyp;
-Timer timer_dtyp2;
-
-void print(IntMatrix &matrix)
-{
-    for (size_t i = 0; i < matrix.size(); i++)
-    {
-        std::cout << i << ": ";
-        for (size_t j = 0; j < matrix[i].size(); ++j)
-        {
-            std::cout << " " << matrix[i][j];
-        }
-        std::cout << "\n";
-    }
-}
-
-void print(std::vector<IntMatrix> &array)
-{
-    for (size_t i = 0; i < array.size(); i++)
-    {
-        std::cout << "[" <<i << "]\n";
-        print(array[i]);
-        std::cout << "\n";
-    }
-}
 
 // Print the data as 2d map.
 void print_map(Matrix<float> matrix)
@@ -76,32 +48,3 @@ void print_map(Matrix<float> matrix)
         std::cout << row;
     }
 }
-
-void print(IntVec vec)
-{
-    std::cout << "[";
-    for (size_t i = 0; i < vec.size(); ++i)
-    {
-        std::cout << vec[i];
-        if (i + 1 != vec.size())
-        {
-            std::cout << ", ";
-        }
-    }
-    std::cout << "]\n";
-}
-
-void print(std::vector<float> vec)
-{
-    std::cout << "[";
-    for (size_t i = 0; i < vec.size(); ++i)
-    {
-        std::cout << vec[i];
-        if (i + 1 != vec.size())
-        {
-            std::cout << ", ";
-        }
-    }
-    std::cout << "]\n";
-}
-

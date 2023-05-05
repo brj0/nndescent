@@ -4,6 +4,13 @@
 #include "dtypes.h"
 #include "utils.h"
 
+const char FALSE = '0';
+const char TRUE = '1';
+
+const float MAX_FLOAT = std::numeric_limits<float>::max();
+const int MAX_INT = std::numeric_limits<int>::max();
+
+
 void nn_descent
 (
     const Matrix<float> &data,
@@ -23,7 +30,18 @@ inline float dist
     const Matrix<float> &data,
     size_t row0,
     size_t row1
-);
+)
+{
+    float sum = 0.0f;
+    size_t dim = data.ncols();
+    for (size_t i = 0; i < dim; ++i)
+    {
+        sum += (data(row0, i) - data(row1, i))
+             * (data(row0, i) - data(row1, i));
+    }
+    return sum;
+}
+
 
 struct Parms
 {
@@ -35,7 +53,6 @@ struct Parms
     int leaf_size=NONE;
     float pruning_degree_multiplier=1.5;
     float diversify_prob=1.0;
-    int n_search_trees=1;
     bool tree_init=true;
     // init_graph=NULL;
     // init_dist=NULL;
@@ -64,7 +81,6 @@ class NNDescent
         int leaf_size=NONE;
         float pruning_degree_multiplier=1.5;
         float diversify_prob=1.0;
-        int n_search_trees=1;
         bool tree_init=true;
         // init_graph=NULL;
         // init_dist=NULL;
@@ -87,7 +103,6 @@ class NNDescent
         NNDescent(Matrix<float> input_data, int k);
         NNDescent(Parms parms);
         int data_size() {return data.nrows();}
-        void print();
         Matrix<int> neighbor_graph;
         Matrix<int> bf_graph;
         Matrix<int> brute_force();

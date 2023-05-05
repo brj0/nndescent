@@ -7,37 +7,16 @@
  * https://www.cs.princeton.edu/cass/papers/www11.pdf
  */
 
-#include <vector>
-#include <algorithm>
-#include <numeric>
-#include <iostream>
-#include <chrono>
 #include <assert.h>
-#include <ctime>
 #include <iomanip>
+#include <iostream>
 #include <thread>
+#include <vector>
 
 #include "dtypes.h"
 #include "nnd.h"
 #include "utils.h"
 #include "rp_trees.h"
-
-inline float dist
-(
-    const Matrix<float> &data,
-    size_t row0,
-    size_t row1
-)
-{
-    float sum = 0.0f;
-    size_t dim = data.ncols();
-    for (size_t i = 0; i < dim; ++i)
-    {
-        sum += (data(row0, i) - data(row1, i))
-             * (data(row0, i) - data(row1, i));
-    }
-    return sum;
-}
 
 // Global timer for debugging
 Timer timer;
@@ -124,7 +103,6 @@ void sample_candidates
     int n_threads
 )
 {
-    // #pragma omp parallel num_threads(2)
     #pragma omp parallel for
     for (int thread = 0; thread < n_threads; ++thread)
     {
@@ -304,14 +282,16 @@ std::vector<NNUpdate> generate_graph_updates(
 }
 
 
-int apply_graph_updates(
+int apply_graph_updates
+(
     HeapList<float> &current_graph,
-    std::vector<NNUpdate> updates,
+    std::vector<NNUpdate> &updates,
     int n_threads
 )
 {
     int n_changes = 0;
 
+    #pragma omp parallel for
     for (int thread = 0; thread < n_threads; ++thread)
     {
         for (NNUpdate update : updates)
@@ -321,11 +301,11 @@ int apply_graph_updates(
             assert(idx0 >= 0);
             assert(idx1 >= 0);
             float d = update.dist;
-            if (idx0 % n_threads == 0)
+            if (idx0 % n_threads == thread)
             {
                 n_changes += current_graph.checked_push(idx0, idx1, d, TRUE);
             }
-            if (idx1 % n_threads == 0)
+            if (idx1 % n_threads == thread)
             {
                 n_changes += current_graph.checked_push(idx1, idx0, d, TRUE);
             }
@@ -347,6 +327,7 @@ void nn_descent
     int max_candidates,
     int n_iters,
     float delta,
+    int n_threads,
     bool verbose
 )
 {
@@ -370,8 +351,6 @@ void nn_descent
         HeapList<int> new_candidates(data.nrows(), max_candidates, MAX_INT);
         HeapList<int> old_candidates(data.nrows(), max_candidates, MAX_INT);
 
-        int n_threads = 4;
-
         timer.start();
 
         sample_candidates(
@@ -381,6 +360,8 @@ void nn_descent
             rng_state,
             n_threads
         );
+        // std::cout << "NEW=" << new_candidates << "\n";
+        // std::cout << "OLD=" << old_candidates << "\n";
         timer.stop("sample_candidates");
         // std::cout << "current_graph with flags=" << current_graph;
 
@@ -394,12 +375,12 @@ void nn_descent
         // std::cout << "updates=" << updates;
         timer.stop("generate graph updates");
 
-        int cnt = 0;
-        cnt += apply_graph_updates(
+        int cnt = apply_graph_updates(
             current_graph,
             updates,
             n_threads
         );
+        // std::cout << "current_graph updated=" << current_graph;
         log("\t\t" + std::to_string(cnt) + " updates applied", verbose);
         timer.stop("apply graph updates");
 
@@ -452,7 +433,6 @@ NNDescent::NNDescent(Parms parms)
     , leaf_size(parms.leaf_size)
     , pruning_degree_multiplier(parms.pruning_degree_multiplier)
     , diversify_prob(parms.diversify_prob)
-    , n_search_trees(parms.n_search_trees)
     , tree_init(parms.tree_init)
     , seed(parms.seed)
     , low_memory(parms.low_memory)
@@ -466,11 +446,6 @@ NNDescent::NNDescent(Parms parms)
     , algorithm(parms.algorithm)
     , current_graph(parms.data.nrows(), parms.n_neighbors, MAX_FLOAT, FALSE)
 {
-    if (algorithm == "bf")
-    {
-        this->brute_force();
-        return;
-    }
     timer.start();
 
     if (leaf_size == NONE)
@@ -495,16 +470,23 @@ NNDescent::NNDescent(Parms parms)
     {
         n_iters = std::max(5, (int)std::round(std::log2(data.nrows())));
     }
-    seed_state(rng_state, seed);
-    std::cout << *this;
-    if (algorithm == "nnd")
-    {
-        this->start();
-    }
     if (n_threads == NONE || n_threads == 0)
     {
         int n_processors = std::thread::hardware_concurrency();
         n_threads = n_processors == 0 ? 4 : n_processors;
+    }
+    seed_state(rng_state, seed);
+
+    std::cout << *this;
+
+    if (algorithm == "bf")
+    {
+        this->brute_force();
+        return;
+    }
+    if (algorithm == "nnd")
+    {
+        this->start();
     }
 }
 
@@ -544,15 +526,16 @@ void NNDescent::start()
         max_candidates,
         n_iters,
         delta,
+        n_threads,
         verbose
     );
     timer.stop("nn_descent");
     current_graph.heapsort();
     timer.stop("heapsort");
     neighbor_graph = current_graph.indices;
-    // std::cout << current_graph;
+    // std::cout << "end current graph=" << current_graph;
     // std::cout << neighbor_graph;
-    std::cout << *this;
+    // std::cout << *this;
 }
 
 Matrix<int> NNDescent::brute_force()
@@ -581,7 +564,6 @@ std::ostream& operator<<(std::ostream &out, const NNDescent &nnd)
         << "leaf_size=" << nnd.leaf_size << ",\n\t"
         << "pruning_degree_multiplier=" << nnd.pruning_degree_multiplier << ",\n\t"
         << "diversify_prob=" << nnd.diversify_prob << ",\n\t"
-        << "n_search_trees=" << nnd.n_search_trees  << ",\n\t"
         << "tree_init=" << nnd.tree_init  << ",\n\t"
         << "seed=" << nnd.seed  << ",\n\t"
         << "low_memory=" << nnd.low_memory  << ",\n\t"

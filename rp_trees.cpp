@@ -1,5 +1,12 @@
 #include "dtypes.h"
 #include "rp_trees.h"
+#include "utils.h"
+
+
+const float EPS = 1e-8;
+
+Timer timer_dtyp;
+
 
 // Performs a random projection tree split on the data in 'parent'
 // by selecting two points in random and splitting along the connecting
@@ -225,6 +232,7 @@ std::vector<IntMatrix> make_forest
 )
 {
     std::vector<IntMatrix> forest(n_trees);
+    #pragma omp parallel for shared(forest) //num_threads(1)
     for (int i = 0; i < n_trees; ++i)
     {
         RandomState local_rng_state;

@@ -1,23 +1,18 @@
 #pragma once
 
 #include <algorithm>
-#include <random>
-#include <vector>
-#include <valarray>
 #include <chrono>
-#include <string>
+#include <cmath>
 #include <iostream>
+#include <numeric>
+#include <string>
+#include <vector>
 
 #include "utils.h"
 
+
 typedef std::vector<int> IntVec;
 typedef std::vector<IntVec> IntMatrix;
-
-const float EPS = 1e-8;
-const float MAX_FLOAT = std::numeric_limits<float>::max();
-const int MAX_INT = std::numeric_limits<int>::max();
-const char FALSE = '0';
-const char TRUE = '1';
 
 template <class T>
 class Matrix
@@ -29,11 +24,11 @@ class Matrix
         Matrix(size_t rows, std::vector<T> &val);
         T& operator()(size_t i, size_t j);
         const T operator()(size_t i, size_t j) const;
-        size_t nrows() const {return n_rows;}
-        size_t ncols() const {return n_cols;}
+        size_t nrows() const { return n_rows; }
+        size_t ncols() const { return n_cols; }
         float* operator[](size_t i){ return &val[i*n_cols]; }
-        auto begin(size_t i) const {return val.begin() + i*n_cols;}
-        auto end(size_t i) const {return val.begin() + (i + 1)*n_cols;}
+        auto begin(size_t i) const { return val.begin() + i*n_cols; }
+        auto end(size_t i) const { return val.begin() + (i + 1)*n_cols; }
         T *to_pnt() { return &val[0];}
         std::vector<T> val;
 
@@ -110,57 +105,6 @@ std::ostream& operator<<(std::ostream &out, Matrix<T> const& matrix)
     out << "]\n";
     return out;
 }
-
-// Timer for debugging
-class Timer
-{
-    private:
-        std::chrono::time_point<std::chrono::system_clock> time;
-    public:
-        void start()
-        {
-            time = std::chrono::high_resolution_clock::now();
-        }
-        void stop(std::string text)
-        {
-            auto end = std::chrono::high_resolution_clock::now();
-            std::cout << "Time passed: "
-                << std::chrono::duration_cast<std::chrono::milliseconds>(
-                       end - time
-                   ).count()
-                << " ms ("
-                << text
-                << ")\n";
-            this->start();
-        }
-};
-
-// Binary max-heap data structure.
-template <class NodeType>
-class Heap
-{
-    private:
-        std::vector<NodeType> nodes_;
-    public:
-        Heap() {}
-        Heap(size_t n):
-            nodes_(std::vector<NodeType>(n)) {}
-        Heap(size_t n, NodeType node):
-            nodes_(std::vector<NodeType>(n, node)) {}
-        auto max() {return nodes_[0].key;}
-        size_t size() {return nodes_.size();}
-        size_t valid_idx_size();
-        void insert(NodeType node);
-        void controlled_insert(NodeType node);
-        void siftup(int i_node);
-        void siftdown(int i_node);
-        bool node_in_heap(NodeType &node);
-        int update_max(NodeType &node);
-        int replace_max(NodeType &node);
-        void update_max(NodeType &node, unsigned int limit);
-        NodeType operator [] (int i) const {return nodes_[i];}
-        NodeType& operator [] (int i) {return nodes_[i];}
-};
 
 template <class KeyType>
 class HeapList
@@ -523,150 +467,32 @@ std::ostream& operator<<(std::ostream &out, HeapList<KeyType> &heaplist)
     return out;
 }
 
-void print(IntVec vec);
-void print(std::vector<float> vec);
-void print(std::vector<IntMatrix> &array);
 void print_map(Matrix<float> matrix);
-void print(IntMatrix &matrix);
 
-std::vector<IntMatrix> make_forest(
-    const Matrix<float> &data,
-    int n_trees,
-    int leaf_size,
-    RandomState &rng_state
-);
-
-
-template <class NodeType>
-void Heap<NodeType>::siftdown(int i_node)
+template <class T>
+std::ostream& operator<<(std::ostream &out, std::vector<T> &vec)
 {
-    int current = i_node;
-    while ((current*2 + 1) < (int) nodes_.size())
+    out << "[";
+    for (size_t i = 0; i < vec.size(); ++i)
     {
-        int left_child = current*2 + 1;
-        int right_child = left_child + 1;
-        int swap = current;
-
-        if (nodes_[swap].key < nodes_[left_child].key)
+        out << vec[i];
+        if (i + 1 != vec.size())
         {
-            swap = left_child;
-        }
-
-        if (
-            (right_child < (int) nodes_.size()) &&
-            (nodes_[swap].key < nodes_[right_child].key)
-        )
-        {
-            swap = right_child;
-        }
-
-        if (swap == current)
-        {
-            return;
-        }
-
-        NodeType tmp = nodes_[current];
-        nodes_[current] = nodes_[swap];
-        nodes_[swap] = tmp;
-        current = swap;
-    }
-}
-
-template <class NodeType>
-void Heap<NodeType>::siftup(int i_node)
-{
-    int current = i_node;
-    int parent = (current - 1)/2;
-    while ((parent >= 0) && (nodes_[parent].key < nodes_[current].key))
-    {
-        NodeType tmp = nodes_[current];
-        nodes_[current] = nodes_[parent];
-        nodes_[parent] = tmp;
-
-        current = parent;
-        parent = (current - 1)/2;
-    }
-}
-
-template <class NodeType>
-bool Heap<NodeType>::node_in_heap(NodeType &node)
-{
-    for (size_t i = 0; i < this->size(); i++)
-    {
-        if (nodes_[i].idx == node.idx)
-        {
-            return true;
+            out << ", ";
         }
     }
-    return false;
+    out << "]";
+    return out;
 }
 
-template <class NodeType>
-size_t Heap<NodeType>::valid_idx_size()
+template <class T>
+std::ostream& operator<<(std::ostream &out, std::vector<std::vector<T>> &matrix)
 {
-    size_t count = std::count_if(
-        nodes_.begin(),
-        nodes_.end(),
-        [&](NodeType const &node){ return node.idx != NONE; }
-    );
-    return count;
-}
-
-template <class NodeType>
-void Heap<NodeType>::insert(NodeType node)
-{
-    nodes_.push_back(node);
-    this->siftup(this->size() - 1);
-}
-
-// Insert 'node' if it is not allready in Heap
-template <class NodeType>
-void Heap<NodeType>::controlled_insert(NodeType node)
-{
-    if (!this->node_in_heap(node))
+    out << "[\n";
+    for(size_t i = 0; i < matrix.size(); ++i)
     {
-        this->insert(node);
+        out << "    " << i << ": " <<  matrix[i] << ",\n";
     }
+    out << "]";
+    return out;
 }
-
-// Replaces max-element by 'node' if it has a smaller distance.
-template <class NodeType>
-int Heap<NodeType>::update_max(NodeType &node)
-{
-    if (node.key >= nodes_[0].key || this->node_in_heap(node))
-    {
-        return 0;
-    }
-    nodes_[0] = node;
-    this->siftdown(0);
-    return 1;
-}
-
-// Replaces max-element by 'node'.
-template <class NodeType>
-int Heap<NodeType>::replace_max(NodeType &node)
-{
-    if (this->node_in_heap(node))
-    {
-        return 0;
-    }
-    nodes_[0] = node;
-    this->siftdown(0);
-    return 1;
-}
-
-// Replaces max-element by 'node' if it has a smaller distance or if heap
-// has size smaller than 'limit'.
-template <class NodeType>
-void Heap<NodeType>::update_max(NodeType &node, unsigned int limit)
-{
-    if (this->size() < limit)
-    {
-        this->controlled_insert(node);
-    }
-    else
-    {
-        this->update_max(node);
-    }
-}
-

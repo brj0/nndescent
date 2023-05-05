@@ -1,4 +1,3 @@
-
 /*
  * DASGUPTA, Sanjoy; FREUND, Yoav. Random projection trees and low dimensional
  * manifolds. In: Proceedings of the fortieth annual ACM symposium on Theory of
@@ -10,21 +9,15 @@
 
 #pragma once
 
+
 #include "dtypes.h"
 
 
-IntMatrix make_rp_tree
+std::vector<IntMatrix> make_forest
 (
     const Matrix<float> &data,
-    unsigned int leaf_size,
+    int n_trees,
+    int leaf_size,
     RandomState &rng_state
-);
-
-void rand_tree_split
-(
-    const Matrix<float> &data,
-    IntVec &parent,
-    IntVec &child0,
-    IntVec &child1
 );
 

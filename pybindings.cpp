@@ -20,6 +20,7 @@ Matrix<int> nnd_algorithm(Matrix<float> &points, int k)
     Parms parms;
     parms.data = points;
     parms.n_neighbors = k;
+    parms.verbose = true;
     NNDescent nnd = NNDescent(parms);
     return nnd.neighbor_graph;
 }
@@ -29,6 +30,7 @@ Matrix<int> bfnn_algorithm(Matrix<float> &points, int k)
     Parms parms;
     parms.data = points;
     parms.n_neighbors = k;
+    parms.verbose = true;
     parms.algorithm = "bf";
     NNDescent nnd = NNDescent(parms);
     return nnd.neighbor_graph;

@@ -1,4 +1,165 @@
 
+// Binary max-heap data structure.
+template <class NodeType>
+class Heap
+{
+    private:
+        std::vector<NodeType> nodes_;
+    public:
+        Heap() {}
+        Heap(size_t n):
+            nodes_(std::vector<NodeType>(n)) {}
+        Heap(size_t n, NodeType node):
+            nodes_(std::vector<NodeType>(n, node)) {}
+        auto max() {return nodes_[0].key;}
+        size_t size() {return nodes_.size();}
+        size_t valid_idx_size();
+        void insert(NodeType node);
+        void controlled_insert(NodeType node);
+        void siftup(int i_node);
+        void siftdown(int i_node);
+        bool node_in_heap(NodeType &node);
+        int update_max(NodeType &node);
+        int replace_max(NodeType &node);
+        void update_max(NodeType &node, unsigned int limit);
+        NodeType operator [] (int i) const {return nodes_[i];}
+        NodeType& operator [] (int i) {return nodes_[i];}
+};
+
+template <class NodeType>
+void Heap<NodeType>::siftdown(int i_node)
+{
+    int current = i_node;
+    while ((current*2 + 1) < (int) nodes_.size())
+    {
+        int left_child = current*2 + 1;
+        int right_child = left_child + 1;
+        int swap = current;
+
+        if (nodes_[swap].key < nodes_[left_child].key)
+        {
+            swap = left_child;
+        }
+
+        if (
+            (right_child < (int) nodes_.size()) &&
+            (nodes_[swap].key < nodes_[right_child].key)
+        )
+        {
+            swap = right_child;
+        }
+
+        if (swap == current)
+        {
+            return;
+        }
+
+        NodeType tmp = nodes_[current];
+        nodes_[current] = nodes_[swap];
+        nodes_[swap] = tmp;
+        current = swap;
+    }
+}
+
+template <class NodeType>
+void Heap<NodeType>::siftup(int i_node)
+{
+    int current = i_node;
+    int parent = (current - 1)/2;
+    while ((parent >= 0) && (nodes_[parent].key < nodes_[current].key))
+    {
+        NodeType tmp = nodes_[current];
+        nodes_[current] = nodes_[parent];
+        nodes_[parent] = tmp;
+
+        current = parent;
+        parent = (current - 1)/2;
+    }
+}
+
+template <class NodeType>
+bool Heap<NodeType>::node_in_heap(NodeType &node)
+{
+    for (size_t i = 0; i < this->size(); i++)
+    {
+        if (nodes_[i].idx == node.idx)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+template <class NodeType>
+size_t Heap<NodeType>::valid_idx_size()
+{
+    size_t count = std::count_if(
+        nodes_.begin(),
+        nodes_.end(),
+        [&](NodeType const &node){ return node.idx != NONE; }
+    );
+    return count;
+}
+
+template <class NodeType>
+void Heap<NodeType>::insert(NodeType node)
+{
+    nodes_.push_back(node);
+    this->siftup(this->size() - 1);
+}
+
+// Insert 'node' if it is not allready in Heap
+template <class NodeType>
+void Heap<NodeType>::controlled_insert(NodeType node)
+{
+    if (!this->node_in_heap(node))
+    {
+        this->insert(node);
+    }
+}
+
+// Replaces max-element by 'node' if it has a smaller distance.
+template <class NodeType>
+int Heap<NodeType>::update_max(NodeType &node)
+{
+    if (node.key >= nodes_[0].key || this->node_in_heap(node))
+    {
+        return 0;
+    }
+    nodes_[0] = node;
+    this->siftdown(0);
+    return 1;
+}
+
+// Replaces max-element by 'node'.
+template <class NodeType>
+int Heap<NodeType>::replace_max(NodeType &node)
+{
+    if (this->node_in_heap(node))
+    {
+        return 0;
+    }
+    nodes_[0] = node;
+    this->siftdown(0);
+    return 1;
+}
+
+// Replaces max-element by 'node' if it has a smaller distance or if heap
+// has size smaller than 'limit'.
+template <class NodeType>
+void Heap<NodeType>::update_max(NodeType &node, unsigned int limit)
+{
+    if (this->size() < limit)
+    {
+        this->controlled_insert(node);
+    }
+    else
+    {
+        this->update_max(node);
+    }
+}
+
+
 Matrix<int> nn_brute_force(Matrix<float> &data, int n_neighbors);
 
 void print(std::vector<NNHeap> &graph)

@@ -94,6 +94,7 @@ def accuracy(approx_neighbors, true_neighbors):
             approx_neighbors[i], true_neighbors[i]
         ).shape[0]
         result[i] = n_correct / true_neighbors.shape[1]
+    print(f"Average accuracy of {np.mean(result)}")
     return result
 
 
@@ -102,18 +103,17 @@ fmnist_train, fmnist_test, _ = get_ann_benchmark_data(
 )
 
 
-k = 4
+k = 30
+# data = pnts
 data = data_NR
-data = pnts
-# data = np.double(fmnist_train)
-timer.start(); bf = nndescent.bfnn(data, k); timer.stop()
-timer.start(); nnd = nndescent.nnd(data, k); timer.stop()
+# data = np.array(fmnist_train)
+timer.start(); bf = nndescent.bfnn(data, k); timer.stop("nndescent")
+timer.start(); nnd = nndescent.nnd(data, k); timer.stop("brute force")
 # t = nndescent.test(pnts, k)
 tree_index = KDTree(data)
 kdt = tree_index.query(data, k=k)[1]
 
 accuracy_stats = accuracy(nnd, kdt)
-print(f"Average accuracy of {np.mean(accuracy_stats)}")
 sns.histplot(accuracy_stats, kde=False)
 plt.title("Distribution of accuracy per query point")
 plt.xlabel("Accuracy")
@@ -121,7 +121,7 @@ plt.show()
 
 
 # import pynndescent
-# index = pynndescent.NNDescent(data, verbose=True)
+# timer.start(); index = pynndescent.NNDescent(data, verbose=True); timer.stop()
 # timer.start(); index = pynndescent.NNDescent(data, leaf_size=k, verbose=True); timer.stop()
 # timer.start(); index = pynndescent.NNDescent(data, leaf_size=k, n_trees=1, n_iters=0, verbose=True); timer.stop()
 # nnd = index.neighbor_graph[0]
