@@ -160,3 +160,7 @@ tags
 data
 examples
 umap
+
+# cpp files
+*.o
+*.d
