@@ -162,5 +162,5 @@ examples
 umap
 
 # cpp files
-*.o
-*.d
+# *.o
+# *.d
