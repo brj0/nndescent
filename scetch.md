@@ -142,6 +142,19 @@ VALGRIND
 --------
 2023-05-02 ==7250== I   refs:      1,122,463,133
 
+FMNIST_TRAIN
+------------
+
+function          | pynndescent USB | nndescent USB | pynndescent H | nndescent H |
+------------------|-----------------|---------------|---------------|-------------|
+total             | 13000           | 17086         | 14282         | 17009       |
+make_forest       | 4400            | 4124          | 3654          | 3449        |
+update by rp tree | 1700            | 2711          | 1992          | 2840        |
+1/16              | 2500            | 5000          | 2990          | 4369        |
+2/16              | 2500            | 5000          | 4317          | 4234        |
+3/16              | 500             | 100           | 997           | 367         |
+4/16              | 500             | 0             | 332           | 0           |
+
 
 
 (nnd_env) dr_b@requiem:~/Dropbox/WorkHome/programming/nnd$ make run

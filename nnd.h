@@ -43,6 +43,7 @@ inline float dist
 }
 
 
+
 struct Parms
 {
     Matrix<float> data;
@@ -96,6 +97,7 @@ class NNDescent
 
         std::string algorithm="nnd";
         RandomState rng_state;
+        void get_distance_function();
 
     public:
         HeapList<float> current_graph;

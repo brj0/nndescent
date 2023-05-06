@@ -6,7 +6,7 @@ depends := $(patsubst %.cpp,%.d,$(sources))
 
 CXX := g++
 CC_CLANG := clang++
-CXXFLAGS := -Wall -g -O3 -pg -march=native
+CXXFLAGS := -Wall -g -pg -Ofast -march=native -flto -fno-math-errno
 CXXFLAGS_O3 := -Wall -g -O3
 EXTRA_FLAGS := -fopenmp -pg
 # CXXFLAGS := -Ofast -march=native

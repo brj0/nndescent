@@ -17,6 +17,7 @@
 #include "nnd.h"
 #include "utils.h"
 #include "rp_trees.h"
+#include "distances.h"
 
 // Global timer for debugging
 Timer timer;
@@ -54,13 +55,11 @@ void update_graph_by_rp_forest(
     std::vector<IntMatrix> &forest
 )
 {
-    // std::cout << "forestsize=" << forest.size() << "\n";
     for (IntMatrix tree : forest)
     {
-        // std::cout << "\ttreesize=" << tree.size() << "\n";
+        // std::cout << "tree=" << tree << "\n" << "graph=" << current_graph;
         for (IntVec leaf : tree)
         {
-            // std::cout << "\t\tleafsize=" << leaf.size() << "\n";
             for (int idx0 : leaf)
             {
                 for (int idx1 : leaf)
@@ -70,6 +69,11 @@ void update_graph_by_rp_forest(
                         continue;
                     }
                     float d = dist(data, idx0, idx1);
+                    // float d = squared_euclidean(
+                        // data.begin(idx0),
+                        // data.end(idx0),
+                        // data.begin(idx1)
+                    // );
                     current_graph.checked_push(idx0, idx1, d, FALSE);
                     current_graph.checked_push(idx1, idx0, d, FALSE);
 
@@ -207,17 +211,20 @@ std::ostream& operator<<(std::ostream &out, std::vector<NNUpdate> &updates)
 }
 
 
-std::vector<NNUpdate> generate_graph_updates(
+std::vector<NNUpdate> generate_graph_updates
+(
     const Matrix<float> &data,
     HeapList<float> &current_graph,
     HeapList<int> &new_candidate_neighbors,
     HeapList<int> &old_candidate_neighbors,
+    int n_threads,
     int verbose
 )
 {
     assert(data.nrows() == new_candidate_neighbors.nheaps());
     assert(data.nrows() == old_candidate_neighbors.nheaps());
     std::vector<NNUpdate> updates;
+    // #pragma omp parallel for num_threads(4)
     for (size_t i = 0; i < new_candidate_neighbors.nheaps(); ++i)
     {
         for (size_t j = 0; j < new_candidate_neighbors.nnodes(); ++j)
@@ -370,6 +377,7 @@ void nn_descent
             current_graph,
             new_candidates,
             old_candidates,
+            n_threads,
             verbose
         );
         // std::cout << "updates=" << updates;
@@ -577,5 +585,170 @@ std::ostream& operator<<(std::ostream &out, const NNDescent &nnd)
         << "algorithm=" << nnd.algorithm  << ",\n"
         << ")\n";
     return out;
+}
+
+void NNDescent::get_distance_function()
+{
+    using It = std::vector<float>::const_iterator;
+    std::function<float(It, It, It)> distance_function;
+
+    if (metric == "euclidean")
+    {
+        distance_function = euclidean<It,It>;
+    }
+    else if (metric == "l2")
+    {
+    }
+    else if (metric == "sqeuclidean")
+    {
+        distance_function = squared_euclidean<It,It>;
+    }
+    else if (metric == "manhattan")
+    {
+        distance_function = manhattan<It,It>;
+    }
+    else if (metric == "taxicab")
+    {
+    }
+    else if (metric == "l1")
+    {
+    }
+    else if (metric == "chebyshev")
+    {
+        distance_function = chebyshev<It,It>;
+    }
+    else if (metric == "linfinity")
+    {
+    }
+    else if (metric == "linfty")
+    {
+    }
+    else if (metric == "linf")
+    {
+    }
+    else if (metric == "minkowski")
+    {
+    }
+    else if (metric == "seuclidean")
+    {
+    }
+    else if (metric == "standardised_euclidean")
+    {
+    }
+    else if (metric == "wminkowski")
+    {
+    }
+    else if (metric == "weighted_minkowski")
+    {
+    }
+    else if (metric == "mahalanobis")
+    {
+    }
+    else if (metric == "canberra")
+    {
+        distance_function = canberra<It,It>;
+    }
+    else if (metric == "cosine")
+    {
+    }
+    else if (metric == "dot")
+    {
+    }
+    else if (metric == "correlation")
+    {
+    }
+    else if (metric == "haversine")
+    {
+    }
+    else if (metric == "braycurtis")
+    {
+        distance_function = bray_curtis<It,It>;
+    }
+    else if (metric == "spearmanr")
+    {
+    }
+    else if (metric == "tsss")
+    {
+    }
+    else if (metric == "true_angular")
+    {
+    }
+    else if (metric == "hellinger")
+    {
+    }
+    else if (metric == "kantorovich")
+    {
+    }
+    else if (metric == "wasserstein")
+    {
+    }
+    else if (metric == "wasserstein_1d")
+    {
+    }
+    else if (metric == "wasserstein-1d")
+    {
+    }
+    else if (metric == "kantorovich-1d")
+    {
+    }
+    else if (metric == "kantorovich_1d")
+    {
+    }
+    else if (metric == "circular_kantorovich")
+    {
+    }
+    else if (metric == "circular_wasserstein")
+    {
+    }
+    else if (metric == "sinkhorn")
+    {
+    }
+    else if (metric == "jensen-shannon")
+    {
+    }
+    else if (metric == "jensen_shannon")
+    {
+    }
+    else if (metric == "symmetric-kl")
+    {
+    }
+    else if (metric == "symmetric_kl")
+    {
+    }
+    else if (metric == "symmetric_kullback_liebler")
+    {
+    }
+    else if (metric == "hamming")
+    {
+        distance_function = hamming<It,It>;
+    }
+    else if (metric == "jaccard")
+    {
+        distance_function = jaccard<It,It>;
+    }
+    else if (metric == "dice")
+    {
+    }
+    else if (metric == "matching")
+    {
+    }
+    else if (metric == "kulsinski")
+    {
+    }
+    else if (metric == "rogerstanimoto")
+    {
+    }
+    else if (metric == "russellrao")
+    {
+    }
+    else if (metric == "sokalsneath")
+    {
+    }
+    else if (metric == "sokalmichener")
+    {
+    }
+    else if (metric == "yule")
+    {
+    }
 }
 

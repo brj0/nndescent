@@ -1,4 +1,25 @@
 
+inline float dist
+(
+    const Matrix<float> &data,
+    size_t row0,
+    size_t row1
+)
+{
+    float sum = 0.0f;
+    float delta;
+    auto it0 = data.begin(row0);
+    auto it1 = data.begin(row1);
+    while (it0 != data.end(row0))
+    {
+        delta = (*it0) * (*it1);
+        sum = std::move(sum) + delta*delta;
+        ++it0;
+        ++it1;
+    }
+    return sum;
+}
+
 // Binary max-heap data structure.
 template <class NodeType>
 class Heap

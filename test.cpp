@@ -11,6 +11,7 @@
 #include "nnd.h"
 #include "utils.h"
 #include "rp_trees.h"
+#include "distances.h"
 
 
 using namespace std::chrono;
@@ -68,7 +69,7 @@ void test_csv()
     Parms parms;
     parms.data=data;
     parms.n_neighbors=k;
-    // parms.n_iters=1;
+    // parms.n_iters=0;
     // parms.n_trees=0;
     parms.verbose=true;
     parms.seed=1234;
@@ -79,10 +80,10 @@ void test_csv()
     ttest.stop("nnd");
 
     parms.algorithm="bf";
-    NNDescent nnd2 = NNDescent(parms);
+    NNDescent nnd_bf = NNDescent(parms);
 
     // IntMatrix nn_ect = nn_brute_force(data, k);
-    Matrix<int> nn_ect = nnd2.neighbor_graph;
+    Matrix<int> nn_ect = nnd_bf.neighbor_graph;
     // Matrix<int> nn_ect = nnd.brute_force();
     ttest.stop("brute force");
 
@@ -126,7 +127,7 @@ int main()
     // Matrix<float> mtx(3,v4);
     // std::cout << "m=" << mtx;
     // std::cout << "distance="
-        // << bray_curtis(mtx.begin(0), mtx.end(0), mtx.begin(2))
+        // << jaccard(mtx.begin(0), mtx.end(0), mtx.begin(2))
         // << "\n";
 
     // int N = 60000*800;
@@ -137,30 +138,35 @@ int main()
     // Matrix<float> data(60000,val);
 
 
-    // ttest.start();
     // double d0;
+
+    // ttest.start();
     // for (int k = 0; k < 10000; ++k)
     // {
         // for (int i = 0; i < 800; ++i)
         // {
-            // d0 = dist(data, 0, i);
+            // // d0 = _dist(data, 0, i);
+            // d0 = _dist(data, 0, i);
         // }
     // }
     // ttest.stop("dot product");
     // std::cout << "dotproduct=" << d0 << "\n";
 
     // ttest.start();
-    // double d0;
     // for (int k = 0; k < 10000; ++k)
     // {
         // for (int i = 0; i < 800; ++i)
         // {
-            // // d0 = squared_euclidean(data.begin(0), data.end(0), data.begin(i));
+            // d0 = squared_euclidean(data.begin(0), data.end(0), data.begin(i));
         // }
     // }
     // ttest.stop("dot product");
     // std::cout << "dotproduct=" << d0 << "\n";
 
+
+    // using it = std::vector<float>::const_iterator;
+    // d0 = squared_euclidean<it, it>(data.begin(0), data.end(0), data.begin(799));
+    // std::cout << "map dotproduct=" << d0 << "\n";
 
     return 0;
 }
