@@ -147,12 +147,12 @@ FMNIST_TRAIN
 
 function          | pynndescent USB | nndescent USB | pynndescent H | nndescent H |
 ------------------|-----------------|---------------|---------------|-------------|
-total             | 13000           | 17086         | 14282         | 17009       |
-make_forest       | 4400            | 4124          | 3654          | 3449        |
-update by rp tree | 1700            | 2711          | 1992          | 2840        |
-1/16              | 2500            | 5000          | 2990          | 4369        |
-2/16              | 2500            | 5000          | 4317          | 4234        |
-3/16              | 500             | 100           | 997           | 367         |
+total             | 13000           | 17086         | 14282         | 12402       |
+make_forest       | 4400            | 4124          | 3654          | 3500        |
+update by rp tree | 1700            | 2711          | 1992          | 2972        |
+1/16              | 2500            | 5000          | 2990          | 2614        |
+2/16              | 2500            | 5000          | 4317          | 2595        |
+3/16              | 500             | 100           | 997           | 336         |
 4/16              | 500             | 0             | 332           | 0           |
 
 
@@ -475,3 +475,4 @@ Time passed: 8 ms (nnd)
 Time passed: 0 ms (brute force)
 Recall accuracy: 0.234375 (15/64)
 (nnd_env) dr_b@requiem:~/Dropbox/WorkHome/programming/nnd$
+

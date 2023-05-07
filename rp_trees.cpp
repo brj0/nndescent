@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "dtypes.h"
 #include "rp_trees.h"
 #include "utils.h"
@@ -8,9 +10,13 @@ const float EPS = 1e-8;
 Timer timer_dtyp;
 
 
-// Performs a random projection tree split on the data in 'parent'
-// by selecting two points in random and splitting along the connecting
-// line.
+/**
+ * @brief Performs a random projection tree split on the data in 'parent'
+ *
+ * Performs a random projection tree split on the data in 'parent'
+ * by selecting two points in random and splitting along the connecting
+ * line.
+ */
 void euclidean_random_projection_split
 (
     const Matrix<float> &data,
@@ -40,25 +46,32 @@ void euclidean_random_projection_split
         norm[i] = data(parent[rand0], i) - data(parent[rand1], i);
     }
 
-    float affine_const = 0.0f;
-    for (size_t j = 0; j < dim; ++j)
-    {
-        affine_const += norm[j] * midpnt[j];
-    }
+    // float affine_const = 0.0f;
+    // for (size_t j = 0; j < dim; ++j)
+    // {
+        // affine_const += norm[j] * midpnt[j];
+    // }
+    const float affine_const = std::inner_product(
+        norm.begin(), norm.end(), midpnt.begin(), 0.0f
+    );
 
     std::vector<bool> side(size);
     int cnt0 = 0;
     int cnt1 = 0;
 
+
     // timer_dtyp.stop("first part");
     for (size_t i = 0; i < size; ++i)
     {
-        float margin = -affine_const;
+        // float margin = -affine_const;
 
-        for (size_t j = 0; j < dim; ++j)
-        {
-            margin += norm[j] * data(parent[i], j);
-        }
+        // for (size_t j = 0; j < dim; ++j)
+        // {
+            // margin += norm[j] * data(parent[i], j);
+        // }
+        float margin = std::inner_product(
+            norm.begin(), norm.end(), data.begin(parent[i]), -affine_const
+        );
 
         if (margin < -EPS)
         {
@@ -232,7 +245,7 @@ std::vector<IntMatrix> make_forest
 )
 {
     std::vector<IntMatrix> forest(n_trees);
-    #pragma omp parallel for shared(forest) //num_threads(1)
+    #pragma omp parallel for //shared(forest) //num_threads(1)
     for (int i = 0; i < n_trees; ++i)
     {
         RandomState local_rng_state;
@@ -244,5 +257,33 @@ std::vector<IntMatrix> make_forest
         forest[i] = tree;
     }
     return forest;
+}
+
+Matrix<int> get_leaves_from_forest
+(
+    std::vector<IntMatrix> &forest,
+    int leaf_size
+)
+{
+    size_t n_rows = 0;
+    for (auto tree : forest)
+    {
+        n_rows += tree.size();
+    }
+    Matrix<int> leaf_matrix(n_rows, leaf_size, -1);
+
+    int current_row = 0;
+    for (size_t i = 0; i < forest.size(); ++i)
+    {
+        for (size_t j = 0; j < forest[i].size(); ++j)
+        {
+            for (size_t k = 0; k < forest[i][j].size(); ++k)
+            {
+                leaf_matrix(current_row, k) = forest[i][j][k];
+            }
+            ++current_row;
+        }
+    }
+    return leaf_matrix;
 }
 

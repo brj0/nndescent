@@ -8,6 +8,7 @@
  */
 
 #include <assert.h>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <thread>
@@ -49,7 +50,93 @@ void init_random
 }
 
 
-void update_graph_by_rp_forest(
+
+void update_by_leavs(
+    const Matrix<float> &data,
+    HeapList<float> &current_graph,
+    Matrix<int> &leaf_array,
+    int n_threads
+)
+{
+    int n_leaves = leaf_array.nrows();
+    int leaf_size = leaf_array.ncols();
+    int block_size = n_leaves / n_threads;
+
+    std::vector<std::vector<NNUpdate>> updates(n_threads);
+
+    // Generate leaf updates
+    for (int thread = 0; thread < n_threads; ++thread)
+    {
+        int block_start  = thread * block_size;
+        int block_end = (thread + 1) * block_size;
+        block_end = (thread == n_threads) ? n_leaves : block_end;
+
+        for (int i = block_start; i < block_end; ++i)
+        {
+            for (int j = 0; j < leaf_size; ++j)
+            {
+                int idx0 = leaf_array(i, j);
+                // std::cout << "i =" << i << " j=" << j << " leafsize=" << leaf_size
+                    // << " blockst=" << block_start << " blocke=" << block_end << " blos="
+                    // << block_size << " nleav=" << n_leaves  << " idx0=" << idx0
+                    // << "\n";
+                if (idx0 == NONE)
+                {
+                    break;
+                }
+                for (int k = j + 1; k < leaf_size; ++k)
+                {
+                    int idx1 = leaf_array(i, k);
+                    if (idx1 == NONE)
+                    {
+                        break;
+                    }
+                    float d = squared_euclidean(
+                        data.begin(idx0),
+                        data.end(idx0),
+                        data.begin(idx1)
+                    );
+                    if (
+                        (d < current_graph.max(idx0)) ||
+                        (d < current_graph.max(idx1))
+                    )
+                    {
+                        NNUpdate update = {idx0, idx1, d};
+                        updates[thread].push_back(update);
+                        // std::cout << update <<" i="<<i<<" j="<<j<<" k="<<k<<"\n";
+                    }
+                }
+            }
+        }
+    }
+
+    // Apply updates
+    #pragma omp parallel for
+    for (int thread = 0; thread < n_threads; ++thread)
+    {
+        for (std::vector<NNUpdate> updates_vec : updates)
+        {
+            for (NNUpdate update : updates_vec)
+            {
+                int idx0 = update.idx0;
+                int idx1 = update.idx1;
+                assert(idx0 >= 0);
+                assert(idx1 >= 0);
+                float d = update.dist;
+                if (idx0 % n_threads == thread)
+                {
+                    current_graph.checked_push(idx0, idx1, d, FALSE);
+                }
+                if (idx1 % n_threads == thread)
+                {
+                    current_graph.checked_push(idx1, idx0, d, FALSE);
+                }
+            }
+        }
+    }
+}
+
+void update_by_rp_forest(
     const Matrix<float> &data,
     HeapList<float> &current_graph,
     std::vector<IntMatrix> &forest
@@ -83,17 +170,6 @@ void update_graph_by_rp_forest(
     }
 }
 
-
-void log(std::string text, bool verbose=true)
-{
-    if (!verbose)
-    {
-        return;
-    }
-    auto now = std::chrono::system_clock::now();
-    std::time_t time = std::chrono::system_clock::to_time_t(now);
-    std::cout << std::put_time(localtime(&time), "%F %T ") << text << "\n";
-}
 
 // Build a heap of candidate neighbors for nearest neighbor descent. For
 // each vertex the candidate neighbors are any current neighbors, and any
@@ -174,44 +250,7 @@ void sample_candidates
     }
 }
 
-
-typedef struct
-{
-    int idx0;
-    int idx1;
-    float dist;
-} NNUpdate;
-
-std::ostream& operator<<(std::ostream &out, NNUpdate &update)
-{
-    out << "(idx0=" << update.idx0
-        << ", idx1=" << update.idx1
-        << ", dist=" << update.dist
-        << ")";
-    return out;
-}
-
-std::ostream& operator<<(std::ostream &out, std::vector<NNUpdate> &updates)
-{
-    out << "[";
-    for (size_t i = 0; i < updates.size(); ++i)
-    {
-        if (i > 0)
-        {
-            out << " ";
-        }
-        out << updates[i];
-        if (i + 1 != updates.size())
-        {
-            out << ",\n";
-        }
-    }
-    out << "]\n";
-    return out;
-}
-
-
-std::vector<NNUpdate> generate_graph_updates
+std::vector<std::vector<NNUpdate>> generate_graph_updates
 (
     const Matrix<float> &data,
     HeapList<float> &current_graph,
@@ -223,66 +262,73 @@ std::vector<NNUpdate> generate_graph_updates
 {
     assert(data.nrows() == new_candidate_neighbors.nheaps());
     assert(data.nrows() == old_candidate_neighbors.nheaps());
-    std::vector<NNUpdate> updates;
-    // #pragma omp parallel for num_threads(4)
-    for (size_t i = 0; i < new_candidate_neighbors.nheaps(); ++i)
+    std::vector<std::vector<NNUpdate>> updates(n_threads);
+    int size_new = new_candidate_neighbors.nheaps();
+    int block_size = size_new / 4 + 1;
+    #pragma omp parallel for
+    for (int thread = 0; thread < n_threads; ++thread)
     {
-        for (size_t j = 0; j < new_candidate_neighbors.nnodes(); ++j)
+        size_t block_start = thread * block_size;
+        size_t block_end = std::min((thread + 1) * block_size, size_new);
+        for (size_t i = block_start; i < block_end; ++i)
         {
-            int idx0 = new_candidate_neighbors.indices(i, j);
-            if (idx0 < 0)
+            for (size_t j = 0; j < new_candidate_neighbors.nnodes(); ++j)
             {
-                continue;
-            }
-            for (size_t k = j + 1; k < new_candidate_neighbors.nnodes(); ++k)
-            {
-                int idx1 = new_candidate_neighbors.indices(i, k);
-                if (idx1 < 0)
+                int idx0 = new_candidate_neighbors.indices(i, j);
+                if (idx0 < 0)
                 {
                     continue;
                 }
-                float d = dist(data, idx0, idx1);
-                // std::cout << "new idx0=" << idx0 << " idx1="<< idx1 << " d="
-                    // << d << " max0=" << current_graph.max(idx0)<< " max1="
-                    // << current_graph.max(idx1) << " i="<<i<<" j="<<j<<" k="<<k<<"\n";
-                if (
-                    (d < current_graph.max(idx0)) ||
-                    (d < current_graph.max(idx1))
-                )
+                for (size_t k = j + 1; k < new_candidate_neighbors.nnodes(); ++k)
                 {
-                    NNUpdate update = {idx0, idx1, d};
-                    updates.push_back(update);
-                    // std::cout << "new " << update <<" i="<<i<<" j="<<j<<" k="<<k<<"\n";
-                }
+                    int idx1 = new_candidate_neighbors.indices(i, k);
+                    if (idx1 < 0)
+                    {
+                        continue;
+                    }
+                    float d = dist(data, idx0, idx1);
+                    // std::cout << "new idx0=" << idx0 << " idx1="<< idx1 << " d="
+                        // << d << " max0=" << current_graph.max(idx0)<< " max1="
+                        // << current_graph.max(idx1) << " i="<<i<<" j="<<j<<" k="<<k<<"\n";
+                    if (
+                        (d < current_graph.max(idx0)) ||
+                        (d < current_graph.max(idx1))
+                    )
+                    {
+                        NNUpdate update = {idx0, idx1, d};
+                        updates[thread].push_back(update);
+                        // std::cout << "new " << update <<" i="<<i<<" j="<<j<<" k="<<k<<"\n";
+                    }
 
-            }
-            for (size_t k = 0; k < old_candidate_neighbors.nnodes(); ++k)
-            {
-                int idx1 = old_candidate_neighbors.indices(i, k);
-                if (idx1 < 0)
-                {
-                    continue;
                 }
-                float d = dist(data, idx0, idx1);
-                // std::cout << "new idx0=" << idx0 << " idx1="<< idx1 << " d="
-                    // << d << " max0=" << current_graph.max(idx0)<< " max1="
-                    // << current_graph.max(idx1) << " i="<<i<<" j="<<j<<" k="<<k<<"\n";
-                if (
-                    (d < current_graph.max(idx0)) ||
-                    (d < current_graph.max(idx1))
-                )
+                for (size_t k = 0; k < old_candidate_neighbors.nnodes(); ++k)
                 {
-                    NNUpdate update = {idx0, idx1, d};
-                    updates.push_back(update);
-                    // std::cout << "old " << update <<" i="<<i<<" j="<<j<<" k="<<k<<"\n";
+                    int idx1 = old_candidate_neighbors.indices(i, k);
+                    if (idx1 < 0)
+                    {
+                        continue;
+                    }
+                    float d = dist(data, idx0, idx1);
+                    // std::cout << "new idx0=" << idx0 << " idx1="<< idx1 << " d="
+                        // << d << " max0=" << current_graph.max(idx0)<< " max1="
+                        // << current_graph.max(idx1) << " i="<<i<<" j="<<j<<" k="<<k<<"\n";
+                    if (
+                        (d < current_graph.max(idx0)) ||
+                        (d < current_graph.max(idx1))
+                    )
+                    {
+                        NNUpdate update = {idx0, idx1, d};
+                        updates[thread].push_back(update);
+                        // std::cout << "old " << update <<" i="<<i<<" j="<<j<<" k="<<k<<"\n";
+                    }
                 }
             }
+            // log(
+                // "\t\tGenerate updates " + std::to_string(i + 1) + "/"
+                    // + std::to_string(new_candidate_neighbors.nheaps()),
+                // (verbose && (i % (new_candidate_neighbors.nheaps() / 4) == 0))
+            // );
         }
-        // log(
-            // "\t\tGenerate updates " + std::to_string(i + 1) + "/"
-                // + std::to_string(new_candidate_neighbors.nheaps()),
-            // (verbose && (i % (new_candidate_neighbors.nheaps() / 4) == 0))
-        // );
     }
 
     return updates;
@@ -292,7 +338,7 @@ std::vector<NNUpdate> generate_graph_updates
 int apply_graph_updates
 (
     HeapList<float> &current_graph,
-    std::vector<NNUpdate> &updates,
+    std::vector<std::vector<NNUpdate>> &updates,
     int n_threads
 )
 {
@@ -301,20 +347,23 @@ int apply_graph_updates
     #pragma omp parallel for
     for (int thread = 0; thread < n_threads; ++thread)
     {
-        for (NNUpdate update : updates)
+        for (std::vector<NNUpdate> updates_vec : updates)
         {
-            int idx0 = update.idx0;
-            int idx1 = update.idx1;
-            assert(idx0 >= 0);
-            assert(idx1 >= 0);
-            float d = update.dist;
-            if (idx0 % n_threads == thread)
+            for (NNUpdate update : updates_vec)
             {
-                n_changes += current_graph.checked_push(idx0, idx1, d, TRUE);
-            }
-            if (idx1 % n_threads == thread)
-            {
-                n_changes += current_graph.checked_push(idx1, idx0, d, TRUE);
+                int idx0 = update.idx0;
+                int idx1 = update.idx1;
+                assert(idx0 >= 0);
+                assert(idx1 >= 0);
+                float d = update.dist;
+                if (idx0 % n_threads == thread)
+                {
+                    n_changes += current_graph.checked_push(idx0, idx1, d, TRUE);
+                }
+                if (idx1 % n_threads == thread)
+                {
+                    n_changes += current_graph.checked_push(idx1, idx0, d, TRUE);
+                }
             }
         }
     }
@@ -323,8 +372,6 @@ int apply_graph_updates
 }
 
 
-
-// TODO do parallel
 void nn_descent
 (
     const Matrix<float> &data,
@@ -372,7 +419,7 @@ void nn_descent
         timer.stop("sample_candidates");
         // std::cout << "current_graph with flags=" << current_graph;
 
-        std::vector<NNUpdate> updates = generate_graph_updates(
+        std::vector<std::vector<NNUpdate>> updates = generate_graph_updates(
             data,
             current_graph,
             new_candidates,
@@ -512,12 +559,19 @@ void NNDescent::start()
         std::vector<IntMatrix> forest = make_forest(
             data, n_trees, leaf_size, rng_state
         );
-        // std::cout << forest;
+        // std::cout << "forest=" << forest;
         timer.stop("make forest");
 
         log("Update Graph by  RP forest", verbose);
 
-        update_graph_by_rp_forest(data, current_graph, forest);
+        Matrix<int> leaf_array = get_leaves_from_forest(forest, leaf_size);
+        // std::cout << "leaf_array=" << leaf_array;
+        timer.stop("make leaf array");
+        update_by_leavs(data, current_graph, leaf_array, n_threads);
+        timer.stop("update by leaf array");
+
+
+        // update_by_rp_forest(data, current_graph, forest);
         // std::cout << current_graph;
         timer.stop("update graph by rp-tree forest");
     }

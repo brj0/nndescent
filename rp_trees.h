@@ -21,3 +21,8 @@ std::vector<IntMatrix> make_forest
     RandomState &rng_state
 );
 
+Matrix<int> get_leaves_from_forest
+(
+    std::vector<IntMatrix> &forest,
+    int leaf_size
+);

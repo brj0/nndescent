@@ -18,6 +18,9 @@ template <class T>
 class Matrix
 {
     public:
+        typedef std::vector<int>::const_iterator const_iterator;
+        typedef std::vector<int>::iterator iterator;
+
         Matrix() {}
         Matrix(size_t rows, size_t cols);
         Matrix(size_t rows, size_t cols, const T &const_val);
@@ -26,7 +29,9 @@ class Matrix
         const T operator()(size_t i, size_t j) const;
         size_t nrows() const { return n_rows; }
         size_t ncols() const { return n_cols; }
-        float* operator[](size_t i){ return &val[i*n_cols]; }
+        T* operator[](size_t i){ return &val[i*n_cols]; }
+        // const T* begin(size_t i) const { return &val[i*n_cols]; }
+        // const T* end(size_t i) const { return &val[(i + 1)*n_cols]; }
         auto begin(size_t i) const { return val.begin() + i*n_cols; }
         auto end(size_t i) const { return val.begin() + (i + 1)*n_cols; }
         T *to_pnt() { return &val[0];}
@@ -496,3 +501,13 @@ std::ostream& operator<<(std::ostream &out, std::vector<std::vector<T>> &matrix)
     out << "]";
     return out;
 }
+
+typedef struct
+{
+    int idx0;
+    int idx1;
+    float dist;
+} NNUpdate;
+
+std::ostream& operator<<(std::ostream &out, NNUpdate &update);
+std::ostream& operator<<(std::ostream &out, std::vector<NNUpdate> &updates);

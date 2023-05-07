@@ -70,7 +70,7 @@ void test_csv()
     parms.data=data;
     parms.n_neighbors=k;
     // parms.n_iters=0;
-    // parms.n_trees=0;
+    // parms.n_trees=72;
     parms.verbose=true;
     parms.seed=1234;
 

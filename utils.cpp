@@ -41,3 +41,15 @@ uint64_t rand_int(RandomState &s)
     s[3] = ((s[3] << 45) | (s[3] >> 19));
     return result;
 }
+
+void log(std::string text, bool verbose)
+{
+    if (!verbose)
+    {
+        return;
+    }
+    auto now = std::chrono::system_clock::now();
+    std::time_t time = std::chrono::system_clock::to_time_t(now);
+    std::cout << std::put_time(localtime(&time), "%F %T ") << text << "\n";
+}
+

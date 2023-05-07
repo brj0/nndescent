@@ -1,7 +1,10 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <iostream>
+#include <string>
+#include <iomanip>
 
 const int NONE = -1;
 const int STATE_SIZE = 4;
@@ -35,3 +38,4 @@ class Timer
         }
 };
 
+void log(std::string text, bool verbose=true);

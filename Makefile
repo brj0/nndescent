@@ -9,10 +9,11 @@ CC_CLANG := clang++
 CXXFLAGS := -Wall -g -pg -Ofast -march=native -flto -fno-math-errno
 CXXFLAGS_O3 := -Wall -g -O3
 EXTRA_FLAGS := -fopenmp -pg
+# RIGHT_FLAGS := -ltbb
 # CXXFLAGS := -Ofast -march=native
 
 CFLAG_FAST := -Wall -g -Ofast -march=native -flto -fno-math-errno
-CFLAG_DEBUG := -Wall -Wextra -g -Og
+CFLAG_DEBUG := -Wall -Wextra -g
 # CFLAG_DEBUG := -Wall -Wextra -g -O0 -pg -fno-stack-protector -fno-inline-functions
 
 all: $(appname)
@@ -21,12 +22,12 @@ install:
 	pip install -e .
 
 $(appname): $(objects)
-	$(CXX) $(CXXFLAGS) $(EXTRA_FLAGS) $^ -o $@
+	$(CXX) $(CXXFLAGS) $(EXTRA_FLAGS) $^ -o $@ $(RIGHT_FLAGS)
 
 -include $(depends)
 
 %.o: %.cpp Makefile
-	$(CXX) $(CXXFLAGS) $(EXTRA_FLAGS) -MMD -MP -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(EXTRA_FLAGS) -MMD -MP -c $< -o $@ $(RIGHT_FLAGS)
 # $(CXX) $(CXXFLAGS) -MMD -c $<
 
 clean:

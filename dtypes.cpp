@@ -48,3 +48,32 @@ void print_map(Matrix<float> matrix)
         std::cout << row;
     }
 }
+
+std::ostream& operator<<(std::ostream &out, NNUpdate &update)
+{
+    out << "(idx0=" << update.idx0
+        << ", idx1=" << update.idx1
+        << ", dist=" << update.dist
+        << ")";
+    return out;
+}
+
+std::ostream& operator<<(std::ostream &out, std::vector<NNUpdate> &updates)
+{
+    out << "[";
+    for (size_t i = 0; i < updates.size(); ++i)
+    {
+        if (i > 0)
+        {
+            out << " ";
+        }
+        out << updates[i];
+        if (i + 1 != updates.size())
+        {
+            out << ",\n";
+        }
+    }
+    out << "]\n";
+    return out;
+}
+
