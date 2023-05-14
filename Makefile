@@ -14,7 +14,7 @@ EXTRA_FLAGS := -fopenmp -pg
 
 CFLAG_FAST := -Wall -g -Ofast -march=native -flto -fno-math-errno
 CFLAG_DEBUG := -Wall -Wextra -g
-# CFLAG_DEBUG := -Wall -Wextra -g -O0 -pg -fno-stack-protector -fno-inline-functions
+CFLAG_DEBUG := -Wall -Wextra -g -O0 -pg -fno-stack-protector -fno-inline-functions
 
 all: $(appname)
 
@@ -49,3 +49,6 @@ o3: $(appname)
 clang: CXX := $(CC_CLANG)
 clang: CXXFLAGS := -Wall -g -Ofast -march=native -pg
 clang: $(appname)
+
+valgrind: CXXFLAGS := -Wall -g -O3 -march=native -pg
+valgrind: $(appname)

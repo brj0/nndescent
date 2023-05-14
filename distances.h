@@ -9,11 +9,27 @@
 #include <map>
 #include <utility>
 
+const float PI = 3.14159265358979f;
+
 /**
  * @brief Squared euclidean distance.
  */
 template<class Iter0, class Iter1>
-inline float squared_euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
+float squared_euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    float result = 0.0f;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        result = std::move(result) + (*first0 - *first1)*(*first0 - *first1);
+    }
+    return result;
+}
+
+/**
+ * @brief Squared euclidean distance.
+ */
+template<class Iter0, class Iter1>
+float _squared_euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     float result = 0.0f;
     while (first0 != last0)
@@ -29,7 +45,7 @@ inline float squared_euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
  * @brief Standard euclidean distance.
  */
 template<class Iter0, class Iter1>
-inline float euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
+float euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     float result = 0.0f;
     while (first0 != last0)
@@ -52,7 +68,7 @@ inline float euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
  * \f]
  */
 template<class Iter0, class Iter1, class Iter2>
-inline float standardised_euclidean
+float standardised_euclidean
 (
     Iter0 first0, Iter0 last0, Iter1 first1, Iter2 first2
 )
@@ -77,7 +93,7 @@ inline float standardised_euclidean
  * \f]
  */
 template<class Iter0, class Iter1>
-inline float manhattan(Iter0 first0, Iter0 last0, Iter1 first1)
+float manhattan(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     float result = 0.0f;
     while (first0 != last0)
@@ -97,7 +113,7 @@ inline float manhattan(Iter0 first0, Iter0 last0, Iter1 first1)
  * \f]
  */
 template<class Iter0, class Iter1>
-inline float chebyshev(Iter0 first0, Iter0 last0, Iter1 first1)
+float chebyshev(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     float result = 0.0f;
     while (first0 != last0)
@@ -123,7 +139,7 @@ inline float chebyshev(Iter0 first0, Iter0 last0, Iter1 first1)
  * to use the more specialised functions for those distances.
  */
 template<class Iter0, class Iter1>
-inline float minkowski(Iter0 first0, Iter0 last0, Iter1 first1, float p)
+float minkowski(Iter0 first0, Iter0 last0, Iter1 first1, float p)
 {
     float result = 0.0f;
     while (first0 != last0)
@@ -134,6 +150,37 @@ inline float minkowski(Iter0 first0, Iter0 last0, Iter1 first1, float p)
     }
     return std::pow(result, 1.0f / p);
 }
+
+// template<class Iter0, class Iter1>
+// struct minkowski_with_fixed_parms
+// {
+    // float _p;
+    // minkowski_with_fixed_parms(float p) : _p(p) {}
+
+    // float operator()(Iter0 first0, Iter0 last0, Iter1 first1) const
+    // {
+        // return minkowski<Iter0, Iter1>(first0, last0, first1, _p);
+    // }
+// };
+// template<class Iter0, class Iter1>
+// struct minkowski_with_fixed_parms
+// {
+    // float _p;
+    // minkowski_with_fixed_parms(float p) : _p(p) {}
+
+    // template<typename It>
+    // static float minkowski_wrapper(It first0, It last0, It first1, float p)
+    // {
+        // return minkowski(first0, last0, first1, p);
+    // }
+
+    // float (*operator())(Iter0 first0, Iter0 last0, Iter1 first1) const
+    // {
+        // return &minkowski_wrapper<Iter0>; // return function pointer
+    // }
+// };
+
+
 
 
 /**
@@ -148,7 +195,7 @@ inline float minkowski(Iter0 first0, Iter0 last0, Iter1 first1, float p)
  * is equivalent to standardised Euclidean distance for p=1).
  */
 template<class Iter0, class Iter1, class Iter2>
-inline float weighted_minkowski
+float weighted_minkowski
 (
     Iter0 first0, Iter0 last0, Iter1 first1, Iter2 first2, float p
 )
@@ -166,30 +213,43 @@ inline float weighted_minkowski
 }
 
 
+/**
+ * @brief Mahalanobis distance.
+ */
+template<class Iter0, class Iter1, class Iter2>
+float mahalanobis(Iter0 first0, Iter0 last0, Iter1 first1, Iter2 matrix_first)
+{
+    float result = 0.0f;
+    int dim = std::distance(first0, last0);
+    std::vector<float> diff(dim, 0.0f);
 
+    for (int i = 0; i < dim; ++i, ++first0, ++first1)
+    {
+        diff[i] = *first0 - *first1;
+    }
 
-// @numba.njit(fastmath=True)
-// def mahalanobis(x, y, vinv=_mock_identity):
-    // result = 0.0
+    first0 -= diff.size();
 
-    // diff = np.empty(x.shape[0], dtype=np.float32)
+    for (int i = 0; i < dim; ++i)
+    {
+        float tmp = 0.0f;
 
-    // for i in range(x.shape[0]):
-        // diff[i] = x[i] - y[i]
+        for (int j = 0; j < dim; ++j, ++matrix_first)
+        {
+            tmp += *matrix_first * diff[j];
+        }
 
-    // for i in range(x.shape[0]):
-        // tmp = 0.0
-        // for j in range(x.shape[0]):
-            // tmp += vinv[i, j] * diff[j]
-        // result += tmp * diff[i]
+        result += tmp * diff[i];
+    }
 
-    // return np.sqrt(result)
+    return std::sqrt(result);
+}
 
 /**
  * @brief Hamming distance
  */
 template<class Iter0, class Iter1>
-inline float hamming(Iter0 first0, Iter0 last0, Iter1 first1)
+float hamming(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     int result = 0;
     int size = last0 - first0;
@@ -210,7 +270,7 @@ inline float hamming(Iter0 first0, Iter0 last0, Iter1 first1)
  * @brief Canberra distance.
  */
 template<class Iter0, class Iter1>
-inline float canberra(Iter0 first0, Iter0 last0, Iter1 first1)
+float canberra(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     float result = 0.0f;
     while (first0 != last0)
@@ -231,7 +291,7 @@ inline float canberra(Iter0 first0, Iter0 last0, Iter1 first1)
  * @brief Bray–Curtis dissimilarity.
  */
 template<class Iter0, class Iter1>
-inline float bray_curtis(Iter0 first0, Iter0 last0, Iter1 first1)
+float bray_curtis(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     int numerator = 0;
     int denominator = 0;
@@ -254,7 +314,7 @@ inline float bray_curtis(Iter0 first0, Iter0 last0, Iter1 first1)
  * @brief Jaccard distance.
  */
 template<class Iter0, class Iter1>
-inline float jaccard(Iter0 first0, Iter0 last0, Iter1 first1)
+float jaccard(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     int num_non_zero = 0;
     int num_equal = 0;
@@ -274,682 +334,851 @@ inline float jaccard(Iter0 first0, Iter0 last0, Iter1 first1)
     return (float)(num_non_zero - num_equal) / num_non_zero;
 }
 
-
-// @numba.njit(
-    // [
-        // "f4(f4[::1],f4[::1])",
-        // numba.types.float32(
-            // numba.types.Array(numba.types.float32, 1, "C", readonly=True),
-            // numba.types.Array(numba.types.float32, 1, "C", readonly=True),
-        // ),
-    // ],
-    // fastmath=True,
-    // locals={
-        // "result": numba.types.float32,
-        // "num_non_zero": numba.types.float32,
-        // "num_equal": numba.types.float32,
-        // "x_true": numba.types.uint8,
-        // "y_true": numba.types.uint8,
-        // "dim": numba.types.intp,
-        // "i": numba.types.uint16,
-    // },
-// )
-// def alternative_jaccard(x, y):
-    // num_non_zero = 0.0
-    // num_equal = 0.0
-    // dim = x.shape[0]
-    // for i in range(dim):
-        // x_true = x[i] != 0
-        // y_true = y[i] != 0
-        // num_non_zero += x_true or y_true
-        // num_equal += x_true and y_true
-
-    // if num_non_zero == 0.0:
-        // return 0.0
-    // else:
-        // return -np.log2(num_equal / num_non_zero)
-
-
-// @numba.vectorize(fastmath=True)
-// def correct_alternative_jaccard(v):
-    // return 1.0 - pow(2.0, -v)
-
-
-// @numba.njit(fastmath=True)
-// def matching(x, y):
-    // num_not_equal = 0.0
-    // for i in range(x.shape[0]):
-        // x_true = x[i] != 0
-        // y_true = y[i] != 0
-        // num_not_equal += x_true != y_true
-
-    // return float(num_not_equal) / x.shape[0]
-
-
-// @numba.njit(fastmath=True)
-// def dice(x, y):
-    // num_true_true = 0.0
-    // num_not_equal = 0.0
-    // for i in range(x.shape[0]):
-        // x_true = x[i] != 0
-        // y_true = y[i] != 0
-        // num_true_true += x_true and y_true
-        // num_not_equal += x_true != y_true
-
-    // if num_not_equal == 0.0:
-        // return 0.0
-    // else:
-        // return num_not_equal / (2.0 * num_true_true + num_not_equal)
-
-
-// @numba.njit(fastmath=True)
-// def kulsinski(x, y):
-    // num_true_true = 0.0
-    // num_not_equal = 0.0
-    // for i in range(x.shape[0]):
-        // x_true = x[i] != 0
-        // y_true = y[i] != 0
-        // num_true_true += x_true and y_true
-        // num_not_equal += x_true != y_true
-
-    // if num_not_equal == 0:
-        // return 0.0
-    // else:
-        // return float(num_not_equal - num_true_true + x.shape[0]) / (
-            // num_not_equal + x.shape[0]
-        // )
-
-
-// @numba.njit(fastmath=True)
-// def rogers_tanimoto(x, y):
-    // num_not_equal = 0.0
-    // for i in range(x.shape[0]):
-        // x_true = x[i] != 0
-        // y_true = y[i] != 0
-        // num_not_equal += x_true != y_true
-
-    // return (2.0 * num_not_equal) / (x.shape[0] + num_not_equal)
-
-
-// @numba.njit(fastmath=True)
-// def russellrao(x, y):
-    // num_true_true = 0.0
-    // for i in range(x.shape[0]):
-        // x_true = x[i] != 0
-        // y_true = y[i] != 0
-        // num_true_true += x_true and y_true
-
-    // if num_true_true == np.sum(x != 0) and num_true_true == np.sum(y != 0):
-        // return 0.0
-    // else:
-        // return float(x.shape[0] - num_true_true) / (x.shape[0])
-
-
-// @numba.njit(fastmath=True)
-// def sokal_michener(x, y):
-    // num_not_equal = 0.0
-    // for i in range(x.shape[0]):
-        // x_true = x[i] != 0
-        // y_true = y[i] != 0
-        // num_not_equal += x_true != y_true
-
-    // return (2.0 * num_not_equal) / (x.shape[0] + num_not_equal)
-
-
-// @numba.njit(fastmath=True)
-// def sokal_sneath(x, y):
-    // num_true_true = 0.0
-    // num_not_equal = 0.0
-    // for i in range(x.shape[0]):
-        // x_true = x[i] != 0
-        // y_true = y[i] != 0
-        // num_true_true += x_true and y_true
-        // num_not_equal += x_true != y_true
-
-    // if num_not_equal == 0.0:
-        // return 0.0
-    // else:
-        // return num_not_equal / (0.5 * num_true_true + num_not_equal)
-
-
-// @numba.njit(fastmath=True)
-// def haversine(x, y):
-    // if x.shape[0] != 2:
-        // raise ValueError("haversine is only defined for 2 dimensional graph_data")
-    // sin_lat = np.sin(0.5 * (x[0] - y[0]))
-    // sin_long = np.sin(0.5 * (x[1] - y[1]))
-    // result = np.sqrt(sin_lat**2 + np.cos(x[0]) * np.cos(y[0]) * sin_long**2)
-    // return 2.0 * np.arcsin(result)
-
-
-// @numba.njit(fastmath=True)
-// def yule(x, y):
-    // num_true_true = 0.0
-    // num_true_false = 0.0
-    // num_false_true = 0.0
-    // for i in range(x.shape[0]):
-        // x_true = x[i] != 0
-        // y_true = y[i] != 0
-        // num_true_true += x_true and y_true
-        // num_true_false += x_true and (not y_true)
-        // num_false_true += (not x_true) and y_true
-
-    // num_false_false = x.shape[0] - num_true_true - num_true_false - num_false_true
-
-    // if num_true_false == 0.0 or num_false_true == 0.0:
-        // return 0.0
-    // else:
-        // return (2.0 * num_true_false * num_false_true) / (
-            // num_true_true * num_false_false + num_true_false * num_false_true
-        // )
-
-
-// @numba.njit(fastmath=True)
-// def cosine(x, y):
-    // result = 0.0
-    // norm_x = 0.0
-    // norm_y = 0.0
-    // for i in range(x.shape[0]):
-        // result += x[i] * y[i]
-        // norm_x += x[i] ** 2
-        // norm_y += y[i] ** 2
-
-    // if norm_x == 0.0 and norm_y == 0.0:
-        // return 0.0
-    // elif norm_x == 0.0 or norm_y == 0.0:
-        // return 1.0
-    // else:
-        // return 1.0 - (result / np.sqrt(norm_x * norm_y))
-
-
-// @numba.njit(
-    // [
-        // "f4(f4[::1],f4[::1])",
-        // numba.types.float32(
-            // numba.types.Array(numba.types.float32, 1, "C", readonly=True),
-            // numba.types.Array(numba.types.float32, 1, "C", readonly=True),
-        // ),
-    // ],
-    // fastmath=True,
-    // locals={
-        // "result": numba.types.float32,
-        // "norm_x": numba.types.float32,
-        // "norm_y": numba.types.float32,
-        // "dim": numba.types.intp,
-        // "i": numba.types.uint16,
-    // },
-// )
-// def alternative_cosine(x, y):
-    // result = 0.0
-    // norm_x = 0.0
-    // norm_y = 0.0
-    // dim = x.shape[0]
-    // for i in range(dim):
-        // result += x[i] * y[i]
-        // norm_x += x[i] * x[i]
-        // norm_y += y[i] * y[i]
-
-    // if norm_x == 0.0 and norm_y == 0.0:
-        // return 0.0
-    // elif norm_x == 0.0 or norm_y == 0.0:
-        // return FLOAT32_MAX
-    // elif result <= 0.0:
-        // return FLOAT32_MAX
-    // else:
-        // result = np.sqrt(norm_x * norm_y) / result
-        // return np.log2(result)
-
-
-// @numba.njit(
-    // "f4(f4[::1],f4[::1])",
-    // fastmath=True,
-    // locals={
-        // "result": numba.types.float32,
-        // "dim": numba.types.intp,
-        // "i": numba.types.uint16,
-    // },
-// )
-// def dot(x, y):
-    // result = 0.0
-    // dim = x.shape[0]
-    // for i in range(dim):
-        // result += x[i] * y[i]
-
-    // if result <= 0.0:
-        // return 1.0
-    // else:
-        // return 1.0 - result
-
-
-// @numba.njit(
-    // [
-        // "f4(f4[::1],f4[::1])",
-        // numba.types.float32(
-            // numba.types.Array(numba.types.float32, 1, "C", readonly=True),
-            // numba.types.Array(numba.types.float32, 1, "C", readonly=True),
-        // ),
-    // ],
-    // fastmath=True,
-    // locals={
-        // "result": numba.types.float32,
-        // "dim": numba.types.intp,
-        // "i": numba.types.uint16,
-    // },
-// )
-// def alternative_dot(x, y):
-    // result = 0.0
-    // dim = x.shape[0]
-    // for i in range(dim):
-        // result += x[i] * y[i]
-
-    // if result <= 0.0:
-        // return FLOAT32_MAX
-    // else:
-        // return -np.log2(result)
-
-
-// @numba.vectorize(fastmath=True)
-// def correct_alternative_cosine(d):
-    // return 1.0 - pow(2.0, -d)
-
-
-// @numba.njit(fastmath=True)
-// def tsss(x, y):
-    // d_euc_squared = 0.0
-    // d_cos = 0.0
-    // norm_x = 0.0
-    // norm_y = 0.0
-    // dim = x.shape[0]
-
-    // for i in range(dim):
-        // diff = x[i] - y[i]
-        // d_euc_squared += diff * diff
-        // d_cos += x[i] * y[i]
-        // norm_x += x[i] * x[i]
-        // norm_y += y[i] * y[i]
-
-    // norm_x = np.sqrt(norm_x)
-    // norm_y = np.sqrt(norm_y)
-    // magnitude_difference = np.abs(norm_x - norm_y)
-    // d_cos /= norm_x * norm_y
-    // theta = np.arccos(d_cos) + np.radians(10)  # Add 10 degrees as an "epsilon" to
-    // # avoid problems
-    // sector = ((np.sqrt(d_euc_squared) + magnitude_difference) ** 2) * theta
-    // triangle = norm_x * norm_y * np.sin(theta) / 2.0
-    // return triangle * sector
-
-
-// @numba.njit(fastmath=True)
-// def true_angular(x, y):
-    // result = 0.0
-    // norm_x = 0.0
-    // norm_y = 0.0
-    // dim = x.shape[0]
-    // for i in range(dim):
-        // result += x[i] * y[i]
-        // norm_x += x[i] * x[i]
-        // norm_y += y[i] * y[i]
-
-    // if norm_x == 0.0 and norm_y == 0.0:
-        // return 0.0
-    // elif norm_x == 0.0 or norm_y == 0.0:
-        // return FLOAT32_MAX
-    // elif result <= 0.0:
-        // return FLOAT32_MAX
-    // else:
-        // result = result / np.sqrt(norm_x * norm_y)
-        // return 1.0 - (np.arccos(result) / np.pi)
-
-
-// @numba.vectorize(fastmath=True)
-// def true_angular_from_alt_cosine(d):
-    // return 1.0 - (np.arccos(pow(2.0, -d)) / np.pi)
-
-
-// @numba.njit(fastmath=True)
-// def correlation(x, y):
-    // mu_x = 0.0
-    // mu_y = 0.0
-    // norm_x = 0.0
-    // norm_y = 0.0
-    // dot_product = 0.0
-
-    // for i in range(x.shape[0]):
-        // mu_x += x[i]
-        // mu_y += y[i]
-
-    // mu_x /= x.shape[0]
-    // mu_y /= x.shape[0]
-
-    // for i in range(x.shape[0]):
-        // shifted_x = x[i] - mu_x
-        // shifted_y = y[i] - mu_y
-        // norm_x += shifted_x**2
-        // norm_y += shifted_y**2
-        // dot_product += shifted_x * shifted_y
-
-    // if norm_x == 0.0 and norm_y == 0.0:
-        // return 0.0
-    // elif dot_product == 0.0:
-        // return 1.0
-    // else:
-        // return 1.0 - (dot_product / np.sqrt(norm_x * norm_y))
-
-
-// @numba.njit(
-    // [
-        // "f4(f4[::1],f4[::1])",
-        // numba.types.float32(
-            // numba.types.Array(numba.types.float32, 1, "C", readonly=True),
-            // numba.types.Array(numba.types.float32, 1, "C", readonly=True),
-        // ),
-    // ],
-    // fastmath=True,
-    // locals={
-        // "result": numba.types.float32,
-        // "l1_norm_x": numba.types.float32,
-        // "l1_norm_y": numba.types.float32,
-        // "dim": numba.types.intp,
-        // "i": numba.types.uint16,
-    // },
-// )
-// def hellinger(x, y):
-    // result = 0.0
-    // l1_norm_x = 0.0
-    // l1_norm_y = 0.0
-    // dim = x.shape[0]
-
-    // for i in range(dim):
-        // result += np.sqrt(x[i] * y[i])
-        // l1_norm_x += x[i]
-        // l1_norm_y += y[i]
-
-    // if l1_norm_x == 0 and l1_norm_y == 0:
-        // return 0.0
-    // elif l1_norm_x == 0 or l1_norm_y == 0:
-        // return 1.0
-    // else:
-        // return np.sqrt(1 - result / np.sqrt(l1_norm_x * l1_norm_y))
-
-
-// @numba.njit(
-    // [
-        // "f4(f4[::1],f4[::1])",
-        // numba.types.float32(
-            // numba.types.Array(numba.types.float32, 1, "C", readonly=True),
-            // numba.types.Array(numba.types.float32, 1, "C", readonly=True),
-        // ),
-    // ],
-    // fastmath=True,
-    // locals={
-        // "result": numba.types.float32,
-        // "l1_norm_x": numba.types.float32,
-        // "l1_norm_y": numba.types.float32,
-        // "dim": numba.types.intp,
-        // "i": numba.types.uint16,
-    // },
-// )
-// def alternative_hellinger(x, y):
-    // result = 0.0
-    // l1_norm_x = 0.0
-    // l1_norm_y = 0.0
-    // dim = x.shape[0]
-
-    // for i in range(dim):
-        // result += np.sqrt(x[i] * y[i])
-        // l1_norm_x += x[i]
-        // l1_norm_y += y[i]
-
-    // if l1_norm_x == 0 and l1_norm_y == 0:
-        // return 0.0
-    // elif l1_norm_x == 0 or l1_norm_y == 0:
-        // return FLOAT32_MAX
-    // elif result <= 0:
-        // return FLOAT32_MAX
-    // else:
-        // result = np.sqrt(l1_norm_x * l1_norm_y) / result
-        // return np.log2(result)
-
-
-// @numba.vectorize(fastmath=True)
-// def correct_alternative_hellinger(d):
-    // return np.sqrt(1.0 - pow(2.0, -d))
-
-
-// @numba.njit()
-// def rankdata(a, method="average"):
-    // arr = np.ravel(np.asarray(a))
-    // if method == "ordinal":
-        // sorter = arr.argsort(kind="mergesort")
-    // else:
-        // sorter = arr.argsort(kind="quicksort")
-
-    // inv = np.empty(sorter.size, dtype=np.intp)
-    // inv[sorter] = np.arange(sorter.size)
-
-    // if method == "ordinal":
-        // return (inv + 1).astype(np.float64)
-
-    // arr = arr[sorter]
-    // obs = np.ones(arr.size, np.bool_)
-    // obs[1:] = arr[1:] != arr[:-1]
-    // dense = obs.cumsum()[inv]
-
-    // if method == "dense":
-        // return dense.astype(np.float64)
-
-    // # cumulative counts of each unique value
-    // nonzero = np.nonzero(obs)[0]
-    // count = np.concatenate((nonzero, np.array([len(obs)], nonzero.dtype)))
-
-    // if method == "max":
-        // return count[dense].astype(np.float64)
-
-    // if method == "min":
-        // return (count[dense - 1] + 1).astype(np.float64)
-
-    // # average method
-    // return 0.5 * (count[dense] + count[dense - 1] + 1)
-
-
-// @numba.njit(fastmath=True)
-// def spearmanr(x, y):
-    // x_rank = rankdata(x)
-    // y_rank = rankdata(y)
-
-    // return correlation(x_rank, y_rank)
-
-
-// @numba.njit(nogil=True)
-// def kantorovich(x, y, cost=_dummy_cost, max_iter=100000):
-
-    // row_mask = x != 0
-    // col_mask = y != 0
-
-    // a = x[row_mask].astype(np.float64)
-    // b = y[col_mask].astype(np.float64)
-
-    // a_sum = a.sum()
-    // b_sum = b.sum()
-
-    // # if not isclose(a_sum, b_sum):
-    // #     raise ValueError(
-    // #         "Kantorovich distance inputs must be valid probability distributions."
-    // #     )
-
-    // a /= a_sum
-    // b /= b_sum
-
-    // sub_cost = cost[row_mask, :][:, col_mask]
-
-    // node_arc_data, spanning_tree, graph = allocate_graph_structures(
-        // a.shape[0], b.shape[0], False
-    // )
-    // initialize_supply(a, -b, graph, node_arc_data.supply)
-    // initialize_cost(sub_cost, graph, node_arc_data.cost)
-    // # initialize_cost(cost, graph, node_arc_data.cost)
-    // init_status = initialize_graph_structures(graph, node_arc_data, spanning_tree)
-    // if init_status == False:
-        // raise ValueError(
-            // "Kantorovich distance inputs must be valid probability distributions."
-        // )
-    // solve_status = network_simplex_core(node_arc_data, spanning_tree, graph, max_iter)
-    // # if solve_status == ProblemStatus.MAX_ITER_REACHED:
-    // #     print("WARNING: RESULT MIGHT BE INACCURATE\nMax number of iteration reached!")
-    // if solve_status == ProblemStatus.INFEASIBLE:
-        // raise ValueError(
-            // "Optimal transport problem was INFEASIBLE. Please check inputs."
-        // )
-    // elif solve_status == ProblemStatus.UNBOUNDED:
-        // raise ValueError(
-            // "Optimal transport problem was UNBOUNDED. Please check inputs."
-        // )
-    // result = total_cost(node_arc_data.flow, node_arc_data.cost)
-
-    // return result
-
-
-// @numba.njit(fastmath=True)
-// def sinkhorn(x, y, cost=_dummy_cost, regularization=1.0):
-    // row_mask = x != 0
-    // col_mask = y != 0
-
-    // a = x[row_mask].astype(np.float64)
-    // b = y[col_mask].astype(np.float64)
-
-    // a_sum = a.sum()
-    // b_sum = b.sum()
-
-    // a /= a_sum
-    // b /= b_sum
-
-    // sub_cost = cost[row_mask, :][:, col_mask]
-
-    // transport_plan = sinkhorn_transport_plan(
-        // x, y, cost=sub_cost, regularization=regularization
-    // )
-    // dim_i = transport_plan.shape[0]
-    // dim_j = transport_plan.shape[1]
-    // result = 0.0
-    // for i in range(dim_i):
-        // for j in range(dim_j):
-            // result += transport_plan[i, j] * cost[i, j]
-
-    // return result
-
-
-// @numba.njit()
-// def jensen_shannon_divergence(x, y):
-    // result = 0.0
-    // l1_norm_x = 0.0
-    // l1_norm_y = 0.0
-    // dim = x.shape[0]
-
-    // for i in range(dim):
-        // l1_norm_x += x[i]
-        // l1_norm_y += y[i]
-
-    // l1_norm_x += FLOAT32_EPS * dim
-    // l1_norm_y += FLOAT32_EPS * dim
-
-    // pdf_x = (x + FLOAT32_EPS) / l1_norm_x
-    // pdf_y = (y + FLOAT32_EPS) / l1_norm_y
-    // m = 0.5 * (pdf_x + pdf_y)
-
-    // for i in range(dim):
-        // result += 0.5 * (
-            // pdf_x[i] * np.log(pdf_x[i] / m[i]) + pdf_y[i] * np.log(pdf_y[i] / m[i])
-        // )
-
-    // return result
-
-
-// @numba.njit()
-// def wasserstein_1d(x, y, p=1):
-    // x_sum = 0.0
-    // y_sum = 0.0
-    // for i in range(x.shape[0]):
-        // x_sum += x[i]
-        // y_sum += y[i]
-
-    // x_cdf = x / x_sum
-    // y_cdf = y / y_sum
-
-    // for i in range(1, x_cdf.shape[0]):
-        // x_cdf[i] += x_cdf[i - 1]
-        // y_cdf[i] += y_cdf[i - 1]
-
-    // return minkowski(x_cdf, y_cdf, p)
-
-
-// @numba.njit()
-// def circular_kantorovich(x, y, p=1):
-    // x_sum = 0.0
-    // y_sum = 0.0
-    // for i in range(x.shape[0]):
-        // x_sum += x[i]
-        // y_sum += y[i]
-
-    // x_cdf = x / x_sum
-    // y_cdf = y / y_sum
-
-    // for i in range(1, x_cdf.shape[0]):
-        // x_cdf[i] += x_cdf[i - 1]
-        // y_cdf[i] += y_cdf[i - 1]
-
-    // mu = np.median((x_cdf - y_cdf) ** p)
-
-    // # Now we just want minkowski distance on the CDFs shifted by mu
-    // result = 0.0
-    // if p > 2:
-        // for i in range(x_cdf.shape[0]):
-            // result += np.abs(x_cdf[i] - y_cdf[i] - mu) ** p
-
-        // return result ** (1.0 / p)
-
-    // elif p == 2:
-        // for i in range(x_cdf.shape[0]):
-            // val = x_cdf[i] - y_cdf[i] - mu
-            // result += val * val
-
-        // return np.sqrt(result)
-
-    // elif p == 1:
-        // for i in range(x_cdf.shape[0]):
-            // result += np.abs(x_cdf[i] - y_cdf[i] - mu)
-
-        // return result
-
-    // else:
-        // raise ValueError("Invalid p supplied to Kantorvich distance")
-
-
-// @numba.njit()
-// def symmetric_kl_divergence(x, y):
-    // result = 0.0
-    // l1_norm_x = 0.0
-    // l1_norm_y = 0.0
-    // dim = x.shape[0]
-
-    // for i in range(dim):
-        // l1_norm_x += x[i]
-        // l1_norm_y += y[i]
-
-    // l1_norm_x += FLOAT32_EPS * dim
-    // l1_norm_y += FLOAT32_EPS * dim
-
-    // pdf_x = (x + FLOAT32_EPS) / l1_norm_x
-    // pdf_y = (y + FLOAT32_EPS) / l1_norm_y
-
-    // for i in range(dim):
-        // result += pdf_x[i] * np.log(pdf_x[i] / pdf_y[i]) + pdf_y[i] * np.log(
-            // pdf_y[i] / pdf_x[i]
-        // )
-
-    // return result
-
-
-
+/**
+ * @brief Alternative Jaccard distance.
+ */
+template<class Iter0, class Iter1>
+float alternative_jaccard(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    int num_non_zero = 0;
+    int num_equal = 0;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        bool first0_true = ((*first0) != 0);
+        bool first1_true = ((*first1) != 0);
+        num_non_zero = std::move(num_non_zero) + (first0_true || first1_true);
+        num_equal = std::move(num_equal) + (first0_true && first1_true);
+    }
+    if (num_non_zero == 0)
+    {
+        return 0.0f;
+    }
+    return -std::log2((float)num_equal / num_non_zero);
+}
+
+/**
+ * @brief Correction function for Jaccard distance.
+ */
+template<class Iter>
+void correct_alternative_jaccard(Iter first0, Iter last0, Iter first1)
+{
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        (*first1) = 1.0f - std::pow(2.0f, -*first0);
+    }
+}
+
+
+/**
+ * @brief Matching.
+ */
+template<class Iter0, class Iter1>
+float matching(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    int num_not_equal = 0;
+    size_t size = last0 - first0;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        bool first0_true = (*first0 != 0);
+        bool first1_true = (*first1 != 0);
+        num_not_equal = std::move(num_not_equal) + (first0_true != first1_true);
+    }
+    return (float)num_not_equal / size;
+}
+
+/**
+ * @brief Dice.
+ */
+template<class Iter0, class Iter1>
+float dice(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    int num_true_true = 0;
+    int num_not_equal = 0;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        bool first0_true = (*first0 != 0);
+        bool first1_true = (*first1 != 0);
+        num_true_true = std::move(num_true_true) + (first0_true && first1_true);
+        num_not_equal = std::move(num_not_equal) + (first0_true != first1_true);
+    }
+    if (num_not_equal == 0)
+    {
+        return 0.0f;
+    }
+    return (float)num_not_equal / (2.0f * num_true_true + num_not_equal);
+}
+
+/**
+ * @brief Kulsinski dissimilarity.
+ */
+template<class Iter0, class Iter1>
+float kulsinski(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    int num_true_true = 0;
+    int num_not_equal = 0;
+    float dim = last0 - first0;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        bool first0_true = (*first0 != 0);
+        bool first1_true = (*first1 != 0);
+        num_true_true = std::move(num_true_true) + (first0_true && first1_true);
+        num_not_equal = std::move(num_not_equal) + (first0_true != first1_true);
+    }
+    if (num_not_equal == 0)
+    {
+        return 0.0f;
+    }
+    return (float)(num_not_equal - num_true_true + dim) / (
+        num_not_equal + dim
+    );
+}
+
+/**
+ * @brief Rogers-Tanimoto dissimilarity.
+ */
+template<class Iter0, class Iter1>
+float rogers_tanimoto(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    int num_not_equal = 0;
+    float dim = last0 - first0;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        bool first0_true = (*first0 != 0);
+        bool first1_true = (*first1 != 0);
+        num_not_equal = std::move(num_not_equal) + (first0_true != first1_true);
+    }
+    return (2.0f * num_not_equal) / (dim + num_not_equal);
+}
+
+/**
+ * @brief Russell-Rao dissimilarity.
+ */
+template<class Iter0, class Iter1>
+float russellrao(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    int num_true_true = 0;
+    size_t dim = last0 - first0;
+    int first0_non0 = std::count_if(
+        first0, last0, [&](auto const &x){ return x != 0; }
+    );
+    int first1_non0 = std::count_if(
+        first1, first1 + dim, [&](auto const &x){ return x != 0; }
+    );
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        bool first0_true = (*first0 != 0);
+        bool first1_true = (*first1 != 0);
+        num_true_true = std::move(num_true_true) + (first0_true && first1_true);
+    }
+    if ((num_true_true == first0_non0) && (num_true_true == first1_non0))
+    {
+        return 0.0f;
+    }
+    return (float)(dim - num_true_true) / dim;
+}
+
+/**
+ * @brief Sokal-Michener dissimilarity.
+ */
+template<class Iter0, class Iter1>
+float sokal_michener(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    int num_not_equal = 0;
+    float dim = last0 - first0;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        bool first0_true = (*first0 != 0);
+        bool first1_true = (*first1 != 0);
+        num_not_equal = std::move(num_not_equal) + (first0_true != first1_true);
+    }
+    return (2.0f * num_not_equal) / (dim + num_not_equal);
+}
+
+
+/**
+ * @brief Sokal-Sneath dissimilarity.
+ */
+template<class Iter0, class Iter1>
+float sokal_sneath(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    int num_true_true = 0;
+    int num_not_equal = 0;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        bool first0_true = (*first0 != 0);
+        bool first1_true = (*first1 != 0);
+        num_true_true = std::move(num_true_true) + (first0_true && first1_true);
+        num_not_equal = std::move(num_not_equal) + (first0_true != first1_true);
+    }
+    if (num_not_equal == 0)
+    {
+        return 0.0f;
+    }
+    return (float)(num_not_equal) / (0.5f * num_true_true + num_not_equal);
+}
+
+/**
+ * @brief Haversine distance.
+ */
+template<class Iter0, class Iter1>
+float haversine(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    float sin_lat = std::sin(0.5f * (*first0 - *first1));
+    float sin_long = std::sin(0.5f * (*(first0 + 1) - *(first1 + 1)));
+    float result = std::sqrt(
+        sin_lat*sin_lat
+        + std::cos(*first0) * std::cos(*first1) * sin_long*sin_long
+    );
+    return 2.0f * std::asin(result);
+}
+
+/**
+ * @brief Yule dissimilarity.
+ */
+template<class Iter0, class Iter1>
+float yule(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    int num_true_true = 0;
+    int num_true_false = 0;
+    int num_false_true = 0;
+    int dim = last0 - first0;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        bool first0_true = (*first0 != 0);
+        bool first1_true = (*first1 != 0);
+        num_true_true = std::move(num_true_true) + (first0_true && first1_true);
+        num_true_false = std::move(num_true_false) + (first0_true && !first1_true);
+        num_false_true = std::move(num_false_true) + (!first0_true && first1_true);
+    }
+    int num_false_false = dim - num_true_true - num_true_false - num_false_true;
+    if ((num_true_false == 0) || (num_false_true == 0))
+    {
+        return 0.0f;
+    }
+    return (float)(2.0f * num_true_false * num_false_true) / (
+        num_true_true * num_false_false + num_true_false * num_false_true
+    );
+}
+
+/**
+ * @brief Cosine similarity
+ */
+template<class Iter0, class Iter1>
+float cosine(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    float result = 0.0f;
+    float norm0 = 0.0f;
+    float norm1 = 0.0f;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        result = std::move(result) + (*first0) * (*first1);
+        norm0 = std::move(norm0) + (*first0) * (*first0);
+        norm1 = std::move(norm1) + (*first1) * (*first1);
+    }
+    if ((norm0 == 0.0f) && (norm1 == 0.0f))
+    {
+        return 0.0f;
+    }
+    else if ((norm0 == 0.0f) || (norm1 == 0.0f))
+    {
+        return 1.0f;
+    }
+    return 1.0f - (result / std::sqrt(norm0 * norm1));
+}
+
+
+/**
+ * @brief Alternative cosine similarity
+ */
+template<class Iter0, class Iter1>
+float alternative_cosine(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    float result = 0.0f;
+    float norm0 = 0.0f;
+    float norm1 = 0.0f;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        result = std::move(result) + (*first0) * (*first1);
+        norm0 = std::move(norm0) + (*first0) * (*first0);
+        norm1 = std::move(norm1) + (*first1) * (*first1);
+    }
+    if ((norm0 == 0.0f) && (norm1 == 0.0f))
+    {
+        return 0.0f;
+    }
+    else if ((norm0 == 0.0f) || (norm1 == 0.0f))
+    {
+        return FLOAT_MAX;
+    }
+    else if (result <= 0.0f)
+    {
+        return FLOAT_MAX;
+    }
+    result = std::sqrt(norm0 * norm1) / result;
+    return std::log2(result);
+}
+
+/**
+ * @brief Dot
+ */
+template<class Iter0, class Iter1>
+float dot(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    float result = 0.0f;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        result = std::move(result) + (*first0) * (*first1);
+    }
+    if (result <= 0.0f)
+    {
+        return 1.0f;
+    }
+    return 1.0f - result;
+}
+
+
+/**
+ * @brief Alternative dot
+ */
+template<class Iter0, class Iter1>
+float alternative_dot(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    float result = 0.0f;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        result = std::move(result) + (*first0) * (*first1);
+    }
+    if (result <= 0.0f)
+    {
+        return FLOAT_MAX;
+    }
+    return -std::log2(result);
+}
+
+
+/**
+ * @brief Correction function for cosine.
+ */
+template<class Iter>
+void correct_alternative_cosine(Iter first0, Iter last0, Iter first1)
+{
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        (*first1) = 1.0f - std::pow(2.0f, -*first0);
+    }
+}
+
+
+/**
+ * @brief TS-SS Similarity.
+ */
+template<class Iter0, class Iter1>
+float tsss(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    float d_euc_squared = 0.0f;
+    float d_cos = 0.0f;
+    float norm0 = 0.0f;
+    float norm1 = 0.0f;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        float diff = (*first0) - (*first1);
+        d_euc_squared = std::move(d_euc_squared) + diff*diff;
+        d_cos = std::move(d_cos) + (*first0) * (*first1);
+        norm0 = std::move(norm0) + (*first0) * (*first0);
+        norm1 = std::move(norm1) + (*first1) * (*first1);
+    }
+    norm0 = std::sqrt(norm0);
+    norm1 = std::sqrt(norm1);
+    float magnitude_difference = std::abs(norm0 - norm1);
+    d_cos /= norm0 * norm1;
+    // Add 10 degrees as an "epsilon" to avoid problems.
+    float theta = std::acos(d_cos) + PI / 18.0f;
+    float sector = std::sqrt(d_euc_squared) + magnitude_difference;
+    sector = sector*sector*theta;
+    float triangle = norm0 * norm1 * std::sin(theta) / 2.0f;
+    return triangle * sector;
+}
+
+/**
+ * @brief True angular.
+ */
+template<class Iter0, class Iter1>
+float true_angular(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    float result = 0.0f;
+    float norm0 = 0.0f;
+    float norm1 = 0.0f;
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        result = std::move(result) + (*first0) * (*first1);
+        norm0 = std::move(norm0) + (*first0) * (*first0);
+        norm1 = std::move(norm1) + (*first1) * (*first1);
+    }
+    if ((norm0 == 0.0f) && (norm1 == 0.0f))
+    {
+        return 0.0f;
+    }
+    else if ((norm0 == 0.0f) || (norm1 == 0.0f))
+    {
+        return FLOAT_MAX;
+    }
+    else if (result <= 0.0f)
+    {
+        return FLOAT_MAX;
+    }
+    result = result / std::sqrt(norm0 * norm1);
+    return 1.0f - std::acos(result) / PI;
+}
+
+
+/**
+ * @brief Correction function true angular.
+ */
+template<class Iter>
+void true_angular_from_alt_cosine(Iter first0, Iter last0, Iter first1)
+{
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        (*first1) = 1.0f - std::acos(std::pow(2.0f, -*first0)) / PI;
+    }
+}
+
+/**
+ * @brief Correlation.
+ */
+template<class Iter0, class Iter1>
+float correlation(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    float mu0 = 0.0f;
+    float mu1 = 0.0f;
+    float norm0 = 0.0f;
+    float norm1 = 0.0f;
+    float dot_product = 0.0f;
+    float dim = last0 - first0;
+    Iter0 it0 = first0;
+    Iter1 it1 = first1;
+    for (; it0 != last0; ++it0, ++it1)
+    {
+        mu0 = std::move(mu0) + (*it0);
+        mu1 = std::move(mu1) + (*it1);
+    }
+    mu0 /= dim;
+    mu1 /= dim;
+
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        float shifted0 = *first0 - mu0;
+        float shifted1 = *first1 - mu1;
+        norm0 = std::move(norm0) + shifted0 * shifted0;
+        norm1 = std::move(norm1) + shifted1 * shifted1;
+        dot_product = std::move(dot_product) + shifted0 * shifted1;
+    }
+    if ((norm0 == 0.0f) && (norm1 == 0.0f))
+    {
+        return 0.0f;
+    }
+    else if (dot_product == 0.0f)
+    {
+        return 1.0f;
+    }
+    return 1.0f - dot_product / std::sqrt(norm0 * norm1);
+}
+
+/**
+ * @brief Hellinger
+ */
+template<class Iter0, class Iter1>
+float hellinger(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    float result = 0.0f;
+    float l1_norm0 = 0.0f;
+    float l1_norm1 = 0.0f;
+
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        result = std::move(result) + std::sqrt((*first0) * (*first1));
+
+        l1_norm0 = std::move(l1_norm0) + *first0;
+        l1_norm1 = std::move(l1_norm1) + *first1;
+    }
+
+    if ((l1_norm0 == 0.0f) && (l1_norm1 == 0.0f))
+    {
+        return 0.0f;
+    }
+    else if ((l1_norm0 == 0.0f) || (l1_norm1 == 0.0f))
+    {
+        return 1.0f;
+    }
+
+    return std::sqrt(1.0f - result / std::sqrt(l1_norm0 * l1_norm1));
+}
+
+/**
+ * @brief Alternative Hellinger
+ */
+template<class Iter0, class Iter1>
+float alternative_hellinger(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    float result = 0.0f;
+    float l1_norm0 = 0.0f;
+    float l1_norm1 = 0.0f;
+
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        result = std::move(result) + std::sqrt((*first0) * (*first1));
+
+        l1_norm0 = std::move(l1_norm0) + *first0;
+        l1_norm1 = std::move(l1_norm1) + *first1;
+    }
+
+    if ((l1_norm0 == 0.0f) && (l1_norm1 == 0.0f))
+    {
+        return 0.0f;
+    }
+    else if ((l1_norm0 == 0.0f) || (l1_norm1 == 0.0f))
+    {
+        return FLOAT_MAX;
+    }
+    else if (result <= 0.0f)
+    {
+        return FLOAT_MAX;
+    }
+
+    result = std::sqrt(l1_norm0 * l1_norm1) / result;
+    return std::log2(result);
+}
+
+/**
+ * @brief Correction function for alternative Hellinger.
+ */
+template<class Iter>
+void correct_alternative_hellinger(Iter first0, Iter last0, Iter first1)
+{
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        (*first1) = std::sqrt(1.0f - std::pow(2.0f, -*first0));
+    }
+}
+
+template<class Iter>
+std::vector<float> rankdata
+(
+    Iter first, Iter last,
+    const std::string& method="average"
+)
+{
+    using T = typename std::iterator_traits<Iter>::value_type;
+    std::vector<T> arr(first, last);
+    std::vector<size_t> sorter(arr.size());
+    std::iota(sorter.begin(), sorter.end(), 0);
+    std::sort(sorter.begin(), sorter.end(),
+        [&arr](size_t i, size_t j) { return arr[i] < arr[j]; });
+
+    std::vector<size_t> inv(sorter.size());
+    for (size_t i = 0; i < sorter.size(); ++i)
+    {
+        inv[sorter[i]] = i;
+    }
+
+    if (method == "ordinal")
+    {
+        std::vector<float> result(inv.size());
+        for (size_t i = 0; i < inv.size(); ++i)
+        {
+            result[i] = inv[i] + 1;
+        }
+        return result;
+    }
+
+    std::vector<T> sorted_arr(arr.size());
+    std::vector<int> obs(arr.size());
+
+    sorted_arr[0] = arr[sorter[0]];
+    obs[0] = 1;
+
+    for (size_t i = 1; i < arr.size(); ++i)
+    {
+        sorted_arr[i] = arr[sorter[i]];
+        obs[i] = arr[sorter[i]] != arr[sorter[i - 1]];
+    }
+
+    std::vector<float> dense(inv.size());
+    std::vector<float> obs_partsum(obs.size());
+    std::partial_sum(obs.begin(), obs.end(), obs_partsum.begin());
+
+    for (size_t i = 0; i < inv.size(); ++i)
+    {
+        dense[i] = obs_partsum[inv[i]];
+    }
+
+    if (method == "dense")
+    {
+        return dense;
+    }
+
+    // Cumulative counts of each unique value.
+    std::vector<size_t> count;
+    for (size_t i = 0; i < obs.size(); ++i)
+    {
+        if (obs[i])
+        {
+            count.push_back(i);
+        }
+    }
+    count.push_back(obs.size());
+
+    if (method == "max")
+    {
+        std::vector<float> result(dense.size());
+        for (size_t i = 0; i < dense.size(); ++i)
+        {
+            result[i] = count[dense[i]];
+        }
+        return result;
+    }
+
+    if (method == "min")
+    {
+        std::vector<float> result(dense.size());
+        for (size_t i = 0; i < dense.size(); ++i)
+        {
+            result[i] = count[dense[i] - 1] + 1.0f;
+        }
+        return result;
+    }
+
+    // Average method
+    std::vector<float> result(dense.size());
+    for (size_t i = 0; i < dense.size(); ++i)
+    {
+        result[i] = 0.5 * (count[dense[i]] + count[dense[i] - 1] + 1);
+    }
+    return result;
+}
+
+/**
+ * @brief Spearmanr
+ */
+template<class Iter0, class Iter1>
+float spearmanr(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    std::vector<float> x_rank = rankdata(first0, last0);
+    Iter1 last1 = first1 + std::distance(first0, last0);
+    std::vector<float> y_rank = rankdata(first1, last1);
+
+    return correlation(x_rank.begin(), x_rank.end(), y_rank.begin());
+}
+
+
+/**
+ * @brief Jensen Shannon divergence
+ */
+template<class Iter0, class Iter1>
+float jensen_shannon_divergence(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    float result = 0.0f;
+    float l1_norm0 = 0.0f;
+    float l1_norm1 = 0.0f;
+    size_t dim = last0 - first0;
+
+    Iter0 it0 = first0;
+    Iter1 it1 = first1;
+    for (; it0 != last0; ++it0, ++it1)
+    {
+        l1_norm0 = std::move(l1_norm0) + (*it0);
+        l1_norm1 = std::move(l1_norm1) + (*it1);
+    }
+
+    l1_norm0 = std::move(l1_norm0) + FLOAT_EPS * dim;
+    l1_norm1 = std::move(l1_norm1) + FLOAT_EPS * dim;
+
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        float pdf0 = ((*first0) + FLOAT_EPS) / l1_norm0;
+        float pdf1 = ((*first1) + FLOAT_EPS) / l1_norm1;
+        float m = 0.5f * (pdf0 + pdf1);
+
+        result = std::move(result) + 0.5f*(
+            pdf0*std::log(pdf0 / m) + pdf1*std::log(pdf1 / m)
+        );
+    }
+
+    return result;
+}
+
+/**
+ * @brief Wasserstein 1d
+ */
+template<class Iter0, class Iter1>
+float wasserstein_1d(Iter0 first0, Iter0 last0, Iter1 first1, float p)
+{
+    float sum0 = 0.0f;
+    float sum1 = 0.0f;
+    size_t dim = last0 - first0;
+
+    Iter0 _first0 = first0;
+    Iter1 _first1 = first1;
+
+    for (; first0 != last0; ++first0, ++first1)
+    {
+        sum0 = std::move(sum0) + (*first0);
+        sum1 = std::move(sum1) + (*first1);
+    }
+
+    // Reset iterators
+    first0 = _first0;
+    first1 = _first1;
+
+    std::vector<float> cdf0(dim);
+    std::vector<float> cdf1(dim);
+
+    auto cdf0_it = cdf0.begin();
+    auto cdf1_it = cdf1.begin();
+
+    for (; first0 != last0; ++first0, ++first1, ++cdf0_it, ++cdf1_it)
+    {
+        *cdf0_it = (*first0) / sum0;
+        *cdf1_it = (*first1) / sum1;
+    }
+
+    cdf0_it = cdf0.begin();
+    cdf1_it = cdf1.begin();
+    for (; cdf0_it + 1 != cdf0.end(); ++cdf0_it, ++cdf1_it)
+    {
+        *(cdf0_it + 1) += *cdf0_it;
+        *(cdf1_it + 1) += *cdf1_it;
+    }
+
+    return minkowski(cdf0.begin(), cdf0.end(), cdf1.begin(), p);
+}
+
+template<class T>
+T median(std::vector<T> &vec)
+{
+    if(vec.empty())
+    {
+        return 0;
+    }
+    size_t n = vec.size() / (T)2;
+    nth_element(vec.begin(), vec.begin() + n, vec.end());
+    auto med = vec[n];
+    if (vec.size() % 2 == 0)
+    {
+        auto max_it = max_element(vec.begin(), vec.begin() + n);
+        med = (*max_it + med) / (T)2;
+    }
+    return med;
+}
+
+/**
+ * @brief Circular Kantorovich
+ */
+template<class Iter0, class Iter1>
+float circular_kantorovich(Iter0 first0, Iter0 last0, Iter1 first1, float p)
+{
+    float sum0 = 0.0f;
+    float sum1 = 0.0f;
+    size_t dim = last0 - first0;
+
+    for (size_t i = 0; i < dim; ++i)
+    {
+        sum0 = std::move(sum0) + *(first0 + i);
+        sum1 = std::move(sum1) + *(first1 + i);
+    }
+
+    std::vector<float> cdf0(dim);
+    std::vector<float> cdf1(dim);
+
+    for (size_t i = 0; i < dim; ++i)
+    {
+        cdf0[i] = *(first0 + i) / sum0;
+        cdf1[i] = *(first1 + i) / sum1;
+    }
+
+    for (size_t i = 1; i < dim; ++i)
+    {
+        cdf0[i] += cdf0[i - 1];
+        cdf1[i] += cdf1[i - 1];
+    }
+
+    std::vector<float> diff_p(dim);
+
+    for (size_t i = 0; i < dim; ++i)
+    {
+        diff_p[i] = std::pow(cdf0[i] - cdf1[i], p);
+    }
+
+    float mu = median(diff_p);
+    // Now we just want minkowski distance on the CDFs shifted by mu.
+    float result = 0.0f;
+    if (p > 2.0f)
+    {
+        for (size_t i = 0; i < dim; ++i)
+        {
+            result = std::move(result) + std::abs(
+                std::pow(cdf0[i] - cdf1[i] - mu , p)
+            );
+        }
+
+        return std::pow(result, (1.0f / p));
+    }
+    else if (p == 2.0f)
+    {
+        for (size_t i = 0; i < dim; ++i)
+        {
+            float val = cdf0[i] - cdf1[i] - mu;
+            result = std::move(result) + val*val;
+        }
+        return std::sqrt(result);
+    }
+
+    else if (p == 1.0f)
+    {
+        for (size_t i = 0; i < dim; ++i)
+        {
+            result = std::move(result) + std::abs(cdf0[i] - cdf1[i] - mu);
+        }
+        return result;
+    }
+    throw std::invalid_argument("Invalid p supplied to Kantorvich distance");
+}
+
+template<class Iter0, class Iter1>
+float symmetric_kl_divergence(Iter0 first0, Iter0 last0, Iter1 first1)
+{
+    float result = 0.0f;
+    float l1_norm0 = 0.0f;
+    float l1_norm1 = 0.0f;
+    int dim = std::distance(first0, last0);
+
+    for (int i = 0; i < dim; ++i)
+    {
+        l1_norm0 += *first0;
+        l1_norm1 += *first1;
+        ++first0;
+        ++first1;
+    }
+
+    l1_norm0 += FLOAT_EPS * dim;
+    l1_norm1 += FLOAT_EPS * dim;
+
+    first0 -= dim;
+    first1 -= dim;
+
+    for (int i = 0; i < dim; ++i)
+    {
+        float pdf0 = (*first0 + FLOAT_EPS) / l1_norm0;
+        float pdf1 = (*first1 + FLOAT_EPS) / l1_norm1;
+
+        result += pdf0 * std::log(pdf0 / pdf1) + pdf1 * std::log(pdf1 / pdf0);
+
+        ++first0;
+        ++first1;
+    }
+
+    return result;
+}
 
 // named_distances = {
     // # general minkowski distances

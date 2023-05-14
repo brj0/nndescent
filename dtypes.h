@@ -18,51 +18,59 @@ template <class T>
 class Matrix
 {
     public:
-        typedef std::vector<int>::const_iterator const_iterator;
-        typedef std::vector<int>::iterator iterator;
-
         Matrix() {}
         Matrix(size_t rows, size_t cols);
         Matrix(size_t rows, size_t cols, const T &const_val);
-        Matrix(size_t rows, std::vector<T> &val);
+        Matrix(size_t rows, size_t cols, T *data_ptr);
+        Matrix(size_t rows, std::vector<T> &data);
         T& operator()(size_t i, size_t j);
         const T operator()(size_t i, size_t j) const;
-        size_t nrows() const { return n_rows; }
-        size_t ncols() const { return n_cols; }
-        T* operator[](size_t i){ return &val[i*n_cols]; }
-        // const T* begin(size_t i) const { return &val[i*n_cols]; }
-        // const T* end(size_t i) const { return &val[(i + 1)*n_cols]; }
-        auto begin(size_t i) const { return val.begin() + i*n_cols; }
-        auto end(size_t i) const { return val.begin() + (i + 1)*n_cols; }
-        T *to_pnt() { return &val[0];}
-        std::vector<T> val;
+        size_t nrows() const { return m_rows; }
+        size_t ncols() const { return m_cols; }
+        T* operator[](size_t i){ return m_ptr + i*m_cols; }
+        T* begin(size_t i) const { return m_ptr + i*m_cols; }
+        T* end(size_t i) const { return m_ptr + (i + 1)*m_cols; }
+        std::vector<T> m_data;
+        T *m_ptr;
 
     private:
-        size_t n_rows;
-        size_t n_cols;
+        size_t m_rows;
+        size_t m_cols;
 };
 
 template <class T>
 Matrix<T>::Matrix(size_t rows, size_t cols)
-    : val(rows * cols)
-    , n_rows(rows)
-    , n_cols(cols)
+    : m_data(rows * cols)
+    , m_ptr(&m_data[0])
+    , m_rows(rows)
+    , m_cols(cols)
+{
+}
+
+template <class T>
+Matrix<T>::Matrix(size_t rows, size_t cols, T *data_ptr)
+    : m_data(0)
+    , m_ptr(data_ptr)
+    , m_rows(rows)
+    , m_cols(cols)
 {
 }
 
 template <class T>
 Matrix<T>::Matrix(size_t rows, size_t cols, const T &const_val)
-    : val(rows * cols, const_val)
-    , n_rows(rows)
-    , n_cols(cols)
+    : m_data(rows * cols, const_val)
+    , m_ptr(&m_data[0])
+    , m_rows(rows)
+    , m_cols(cols)
 {
 }
 
 template <class T>
-Matrix<T>::Matrix(size_t rows, std::vector<T> &val)
-    : val(val)
-    , n_rows(rows)
-    , n_cols(val.size()/rows)
+Matrix<T>::Matrix(size_t rows, std::vector<T> &data)
+    : m_data(data)
+    , m_ptr(&m_data[0])
+    , m_rows(rows)
+    , m_cols(data.size()/rows)
 {
 }
 
@@ -70,14 +78,14 @@ template <class T>
 inline
 T& Matrix<T>::operator()(size_t i, size_t j)
 {
-    return val[i * n_cols + j];
+    return m_ptr[i * m_cols + j];
 }
 
 template <class T>
 inline
 const T Matrix<T>::operator()(size_t i, size_t j) const
 {
-    return val[i * n_cols + j];
+    return m_ptr[i * m_cols + j];
 }
 
 template <class T>
@@ -115,8 +123,8 @@ template <class KeyType>
 class HeapList
 {
     private:
-        size_t n_heaps;
-        size_t n_nodes;
+        const size_t n_heaps;
+        const size_t n_nodes;
 
     public:
         Matrix<int> indices;
@@ -138,11 +146,11 @@ class HeapList
             , keys(n_heaps, n_nodes, key0)
             , flags(0, 0)
             {}
-        size_t nheaps() {return n_heaps;}
-        size_t nnodes() {return n_nodes;}
-        bool noflags() { return flags.nrows() == 0; }
-        KeyType max(size_t i) { return keys(i, 0); }
-        size_t size(size_t i);
+        size_t nheaps() const {return n_heaps;}
+        size_t nnodes() const {return n_nodes;}
+        bool noflags() const { return flags.nrows() == 0; }
+        KeyType max(size_t i) const { return keys(i, 0); }
+        size_t size(size_t i) const;
         int checked_push(size_t i, int idx, KeyType key, char flag);
         int checked_push(size_t i, int idx, KeyType key);
         void siftdown(size_t i, size_t stop);
@@ -256,9 +264,16 @@ int HeapList<KeyType>::checked_push(size_t i, int idx, KeyType key, char flag)
     }
 
     // Break if we already have this element.
-    for (size_t j = 0; j < n_nodes; ++j)
+    // for (size_t j = 0; j < n_nodes; ++j)
+    // {
+        // if (indices(i, j) == idx)
+        // {
+            // return 0;
+        // }
+    // }
+    for (auto it = indices.begin(i); it != indices.end(i); ++it)
     {
-        if (indices(i, j) == idx)
+        if (*it == idx)
         {
             return 0;
         }
@@ -336,9 +351,16 @@ int HeapList<KeyType>::checked_push(size_t i, int idx, KeyType key)
     }
 
     // Break if we already have this element.
-    for (size_t j = 0; j < n_nodes; ++j)
+    // for (size_t j = 0; j < n_nodes; ++j)
+    // {
+        // if (indices(i, j) == idx)
+        // {
+            // return 0;
+        // }
+    // }
+    for (auto it = indices.begin(i); it != indices.end(i); ++it)
     {
-        if (indices(i, j) == idx)
+        if (*it == idx)
         {
             return 0;
         }
@@ -406,7 +428,7 @@ int HeapList<KeyType>::checked_push(size_t i, int idx, KeyType key)
 }
 
 template <class KeyType>
-size_t HeapList<KeyType>::size(size_t i)
+size_t HeapList<KeyType>::size(size_t i) const
 {
     size_t count = std::count_if(
         indices.begin(i),
@@ -506,7 +528,7 @@ typedef struct
 {
     int idx0;
     int idx1;
-    float dist;
+    float key;
 } NNUpdate;
 
 std::ostream& operator<<(std::ostream &out, NNUpdate &update);

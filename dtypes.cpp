@@ -53,7 +53,7 @@ std::ostream& operator<<(std::ostream &out, NNUpdate &update)
 {
     out << "(idx0=" << update.idx0
         << ", idx1=" << update.idx1
-        << ", dist=" << update.dist
+        << ", key=" << update.key
         << ")";
     return out;
 }

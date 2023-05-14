@@ -160,7 +160,13 @@ tags
 data
 examples
 umap
+nnd
+callgrind.out.*
+gmon.out
 
 # cpp files
 *.o
 *.d
+
+# ignore this file
+.gitignore

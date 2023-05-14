@@ -6,6 +6,8 @@
 #include "nnd.h"
 #include "dtypes.h"
 
+Timer tbind;
+
 extern "C"
 {
     #include <numpy/arrayobject.h>
@@ -15,24 +17,22 @@ extern "C"
     // static PyObject* test(PyObject* self, PyObject* args);
 }
 
-Matrix<int> nnd_algorithm(Matrix<float> &points, int k)
+Matrix<int> nnd_algorithm(Matrix<float> &data, int k)
 {
     Parms parms;
-    parms.data = points;
     parms.n_neighbors = k;
     parms.verbose = true;
-    NNDescent nnd = NNDescent(parms);
+    NNDescent nnd = NNDescent(data, parms);
     return nnd.neighbor_graph;
 }
 
-Matrix<int> bfnn_algorithm(Matrix<float> &points, int k)
+Matrix<int> bfnn_algorithm(Matrix<float> &data, int k)
 {
     Parms parms;
-    parms.data = points;
     parms.n_neighbors = k;
     parms.verbose = true;
     parms.algorithm = "bf";
-    NNDescent nnd = NNDescent(parms);
+    NNDescent nnd = NNDescent(data, parms);
     return nnd.neighbor_graph;
 }
 
@@ -88,17 +88,17 @@ static PyObject* test(PyObject* self, PyObject* args)
     // Translate input matrix from Python to C++
     int nrows = PyArray_DIM(mat_in, 0);
     int ncols = PyArray_DIM(mat_in, 1);
-    Matrix<float> pnts (nrows, ncols);
+    Matrix<float> data (nrows, ncols);
 
     for(int i = 0; i < nrows; i++)
     {
         for (int j = 0; j < ncols; ++j)
         {
-            pnts(i, j) = *(float*)(PyArray_GETPTR2(mat_in, i, j));
+            data(i, j) = *(float*)(PyArray_GETPTR2(mat_in, i, j));
         }
     }
 
-    // Do stuff with pnts
+    // Do stuff with data
 
     int nrows_out = nrows;
     int ncols_out = k;
@@ -127,6 +127,7 @@ static PyObject* test(PyObject* self, PyObject* args)
 
 static PyObject* nnd(PyObject* self, PyObject* args)
 {
+    tbind.start();
     // Parse Python objects
     PyArrayObject *mat_in;
     int k;
@@ -145,36 +146,40 @@ static PyObject* nnd(PyObject* self, PyObject* args)
     // Translate input matrix from Python to C++
     int nrows = PyArray_DIM(mat_in, 0);
     int ncols = PyArray_DIM(mat_in, 1);
-    Matrix<float> pnts (nrows, ncols);
+    Matrix<float> data (nrows, ncols);
 
     for(int i = 0; i < nrows; i++)
     {
         for (int j = 0; j < ncols; ++j)
         {
-            pnts(i, j) = *(float*)(PyArray_GETPTR2(mat_in, i, j));
+            data(i, j) = *(float*)(PyArray_GETPTR2(mat_in, i, j));
         }
     }
+    tbind.stop("read python");
 
     // Next neighbour descent algorithm
-    Matrix<int> nn_mat = nnd_algorithm(pnts, k);
+    Matrix<int> nn_mat = nnd_algorithm(data, k);
+    tbind.stop("nnd_algorithm");
     nrows = nn_mat.nrows();
     ncols = nn_mat.ncols();
 
-    int *data = new int[nrows * ncols];
-    std::copy(nn_mat.val.begin(), nn_mat.val.end(), data);
+    int *indices = new int[nrows * ncols];
+    std::copy(nn_mat.m_data.begin(), nn_mat.m_data.end(), indices);
 
-    // int *data = new int[nrows * nn_mat[0].size()];
+    // int *indices = new int[nrows * nn_mat[0].size()];
     // for(int i = 0; i < nrows; i++)
     // {
         // for (int j = 0; j < ncols; ++j)
         // {
-            // data[i*ncols + j] = nn_mat[i][j];
+            // indices[i*ncols + j] = nn_mat[i][j];
         // }
     // }
     npy_intp dims[] = {(int)nn_mat.nrows(), (int)nn_mat.ncols()};
     PyObject *mat_out = PyArray_SimpleNewFromData(
-        2, dims, NPY_INT, (void*) data
+        2, dims, NPY_INT, (void*) indices
     );
+
+    tbind.stop("python out");
 
     return mat_out;
 }
@@ -199,34 +204,34 @@ static PyObject* bfnn(PyObject* self, PyObject* args)
     // Translate input matrix from Python to C++
     int nrows = PyArray_DIM(mat_in, 0);
     int ncols = PyArray_DIM(mat_in, 1);
-    Matrix<float> pnts (nrows, ncols);
+    Matrix<float> data (nrows, ncols);
 
     for(int i = 0; i < nrows; i++)
     {
         for (int j = 0; j < ncols; ++j)
         {
-            pnts(i, j) = *(float*)(PyArray_GETPTR2(mat_in, i, j));
+            data(i, j) = *(float*)(PyArray_GETPTR2(mat_in, i, j));
         }
     }
 
     // Next neighbour descent algorithm
-    Matrix<int> nn_mat = bfnn_algorithm(pnts, k);
+    Matrix<int> nn_mat = bfnn_algorithm(data, k);
     std::cout << nn_mat;
     nrows = nn_mat.nrows();
     ncols = nn_mat.ncols();
 
-    int *data = new int[nrows * ncols];
-    std::copy(nn_mat.val.begin(), nn_mat.val.end(), data);
+    int *indices = new int[nrows * ncols];
+    std::copy(nn_mat.m_data.begin(), nn_mat.m_data.end(), indices);
     // for(int i = 0; i < nrows; i++)
     // {
         // for (int j = 0; j < ncols; ++j)
         // {
-            // data[i*ncols + j] = nn_mat(i,j);
+            // indices[i*ncols + j] = nn_mat(i,j);
         // }
     // }
     npy_intp dims[] = {(int)nn_mat.nrows(), (int)nn_mat.ncols()};
     PyObject *mat_out = PyArray_SimpleNewFromData(
-        2, dims, NPY_INT, (void*) data
+        2, dims, NPY_INT, (void*) indices
     );
 
     return mat_out;

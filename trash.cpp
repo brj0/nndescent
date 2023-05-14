@@ -1,4 +1,26 @@
 
+float _dist
+(
+    const Matrix<float> &data,
+    size_t row0,
+    size_t row1
+);
+float _dist
+(
+    const Matrix<float> &data,
+    size_t row0,
+    size_t row1
+)
+{
+    float sum = 0.0f;
+    size_t dim = data.ncols();
+    for (size_t i = 0; i < dim; ++i)
+    {
+        sum += (data(row0, i) - data(row1, i))
+             * (data(row0, i) - data(row1, i));
+    }
+    return sum;
+}
 inline float dist
 (
     const Matrix<float> &data,

@@ -14,18 +14,53 @@ import matplotlib.pyplot as plt
 
 sns.set(rc={"figure.figsize": (10, 6)})
 
+
+class PyNNDWrapper:
+    def __init__(
+        self,
+        data,
+        metric=None,
+        n_neighbors=None,
+        n_trees=None,
+        leaf_size=None,
+        pruning_degree_multiplier=None,
+        diversify_prob=None,
+        tree_init=None,
+        seed=None,
+        low_memory=None,
+        max_candidates=None,
+        n_iters=None,
+        delta=None,
+        n_threads=None,
+        compressed=None,
+        parallel_batch_queries=None,
+        verbose=None,
+        algorithm=None,
+    ):
+        self.dict = {
+            key: value
+            for key, value in locals().items()
+            if value is not None and key not in ["self", "data"]
+        }
+
+
+
 print(nndescent.version())
+
 
 class Timer:
     def __init__(self):
         self.time0 = time.time()
+
     def start(self):
         self.time0 = time.time()
+
     def stop(self, text=None):
-        delta_time = 1000*(time.time() - self.time0)
+        delta_time = 1000 * (time.time() - self.time0)
         comment = "" if text is None else "(" + text + ")"
         print("Time passed:", delta_time, "ms", comment)
         self.time0 = time.time()
+
 
 timer = Timer()
 
@@ -63,7 +98,7 @@ pnts5 = np.array(np.random.randint(2, size=(208, 3339)), dtype=np.float32)
 # t=time.time(); x=nndescent.test(pnts4, 30); print(time.time()-t)
 data_NR = np.loadtxt(
     os.path.expanduser(
-            "~/Dropbox/WorkHome/programming/nnd/data/NR208x3339.csv"
+        "~/Dropbox/WorkHome/programming/nnd/data/NR208x3339.csv"
     ),
     delimiter=",",
     dtype=np.float32,
@@ -107,8 +142,19 @@ k = 30
 # data = pnts
 data = data_NR
 # data = np.array(fmnist_train)
-timer.start(); bf = nndescent.bfnn(data, k); timer.stop("nndescent")
-timer.start(); nnd = nndescent.nnd(data, k); timer.stop("brute force")
+# timer.start(); _t = nndescent._test(data, k); timer.stop("_test")
+
+# print("start NNDescent")
+timer.start(); x=nndescent.NNDescent(data, verbose=True); timer.stop()
+nnd = x.neighbor_graph
+# timer.start(); x=nndescent.NNDescent(pnts, n_trees=1, verbose=True); timer.stop()
+
+timer.start()
+bf = nndescent.bfnn(data, k)
+timer.stop("bf")
+timer.start()
+nnd = nndescent.nnd(data, k)
+timer.stop("nnd")
 # t = nndescent.test(pnts, k)
 tree_index = KDTree(data)
 kdt = tree_index.query(data, k=k)[1]
@@ -162,8 +208,6 @@ plt.show()
 # verbose=True
 
 
-
-
 # timer.start(); self._rp_forest = make_forest( data, n_neighbors, n_trees, leaf_size, self.rng_state, current_random_state, self.n_jobs, self._angular_trees,); timer.stop("make forest")
 
 # timer.start(); self._rp_forest = make_forest( data, n_neighbors, n_trees, leaf_size, self.rng_state, current_random_state, self.n_jobs, self._angular_trees,); timer.stop()
@@ -173,7 +217,7 @@ plt.show()
 # indices = np.arange(data.shape[0]).astype(np.int32)
 # current_random_state = check_random_state(self.random_state)
 # rng_state = current_random_state.randint(INT32_MIN, INT32_MAX, 3).astype(
-    # np.int64
+# np.int64
 # )
 
 # timer.start(); euclidean_random_projection_split(data, indices, rng_state); timer.stop()
@@ -183,27 +227,36 @@ plt.show()
 
 
 import numba
+
+
 @numba.njit
 def dot():
     dim = 1e7
     hyperplane_offset = 0.0
-    v0 = np.arange(0, dim, 1,  dtype=np.float32)
-    v1 = np.arange(1, dim+1, 1, dtype=np.float32)
-    cumsum=0
+    v0 = np.arange(0, dim, 1, dtype=np.float32)
+    v1 = np.arange(1, dim + 1, 1, dtype=np.float32)
+    cumsum = 0
     for d in range(dim):
         cumsum += v0[d] * v1[d]
     return cumsum
 
-timer.start(); dot(); timer.stop("dot")
+
+timer.start()
+dot()
+timer.stop("dot")
+
 
 @numba.njit
 def dota(data):
     size = data.shape[0]
     dim = data.shape[1]
-    cumsum=0
+    cumsum = 0
     for i in range(size):
         for d in range(dim):
-            cumsum += data[0,d] * data[i,d]
+            cumsum += data[0, d] * data[i, d]
     return cumsum
 
-timer.start(); dota(data); timer.stop("dot")
+
+timer.start()
+dota(data)
+timer.stop("dot")
