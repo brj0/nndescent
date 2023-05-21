@@ -170,3 +170,6 @@ gmon.out
 
 # ignore this file
 .gitignore
+
+#
+trash.*

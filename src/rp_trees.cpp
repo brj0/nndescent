@@ -1,13 +1,13 @@
 #include <cstring>
+#include <tuple>
 
 #include "dtypes.h"
 #include "rp_trees.h"
 #include "utils.h"
 
 
-const float EPS = 1e-8;
 
-Timer timer_dtyp;
+// Timer timer_dtyp;
 
 // Dummy DistanceType classes for templates
 class Euclidean {};
@@ -15,34 +15,33 @@ class Angular {};
 
 
 /**
- * @brief Performs a random projection tree split on the data in 'parent'
+ * @brief Performs a random projection tree split on the data in 'indices'
  *
- * Performs a random projection tree split on the data in 'parent'
+ * Performs a random projection tree split on the data in 'indices'
  * by selecting two points in random and splitting along the connecting
  * line.
  */
 template<class DistanceType>
-void random_projection_split(
+std::tuple<std::vector<int>, std::vector<int>, std::vector<float>, float>
+random_projection_split
+(
     const Matrix<float> &data,
-    IntVec &parent,
-    IntVec &child0,
-    IntVec &child1,
+    IntVec &indices,
     RandomState &rng_state
 );
 
 template<>
-void random_projection_split<Euclidean>
+std::tuple<std::vector<int>, std::vector<int>, std::vector<float>, float>
+random_projection_split<Euclidean>
 (
     const Matrix<float> &data,
-    IntVec &parent,
-    IntVec &child0,
-    IntVec &child1,
+    IntVec &indices,
     RandomState &rng_state
 )
 {
     // timer_dtyp.start();
     size_t dim = data.ncols();
-    size_t size = parent.size();
+    size_t size = indices.size();
 
     size_t rand0 = rand_int(rng_state) % size;
     size_t rand1 = rand_int(rng_state) % size;
@@ -56,16 +55,16 @@ void random_projection_split<Euclidean>
     std::vector<float> hyperplane_vector(dim);
     for (size_t i = 0; i < dim; ++i)
     {
-        midpnt[i] = (data(parent[rand0], i) + data(parent[rand1], i)) / 2;
-        hyperplane_vector[i] = data(parent[rand0], i) - data(parent[rand1], i);
+        midpnt[i] = (data(indices[rand0], i) + data(indices[rand1], i)) / 2;
+        hyperplane_vector[i] = data(indices[rand0], i) - data(indices[rand1], i);
     }
 
-    // float affine_const = 0.0f;
+    // float hyperplane_offset = 0.0f;
     // for (size_t j = 0; j < dim; ++j)
     // {
-        // affine_const += hyperplane_vector[j] * midpnt[j];
+        // hyperplane_offset += hyperplane_vector[j] * midpnt[j];
     // }
-    const float affine_const = std::inner_product(
+    const float hyperplane_offset = std::inner_product(
         hyperplane_vector.begin(),
         hyperplane_vector.end(),
         midpnt.begin(),
@@ -79,17 +78,17 @@ void random_projection_split<Euclidean>
     // timer_dtyp.stop("first part");
     for (size_t i = 0; i < size; ++i)
     {
-        // float margin = -affine_const;
+        // float margin = -hyperplane_offset;
 
         // for (size_t j = 0; j < dim; ++j)
         // {
-            // margin += hyperplane_vector[j] * data(parent[i], j);
+            // margin += hyperplane_vector[j] * data(indices[i], j);
         // }
         float margin = std::inner_product(
             hyperplane_vector.begin(),
             hyperplane_vector.end(),
-            data.begin(parent[i]),
-            -affine_const
+            data.begin(indices[i]),
+            -hyperplane_offset
         );
 
         if (margin < -EPS)
@@ -135,40 +134,42 @@ void random_projection_split<Euclidean>
         }
         std::cout << "random tree split failed\n";
     }
-    child0.resize(cnt0);
-    child1.resize(cnt1);
+    std::vector<int> left_indices(cnt0);
+    std::vector<int> right_indices(cnt1);
     cnt0 = 0;
     cnt1 = 0;
     for (size_t i = 0; i < size; ++i)
     {
         if (side[i] == 0)
         {
-            child0[cnt0] = parent[i];
+            left_indices[cnt0] = indices[i];
             ++cnt0;
         }
         else
         {
-            child1[cnt1] = parent[i];
+            right_indices[cnt1] = indices[i];
             ++cnt1;
         }
     }
     // timer_dtyp.stop("end");
+    return std::make_tuple(
+        left_indices, right_indices, hyperplane_vector, hyperplane_offset
+    );
 }
 
 
 template<>
-void random_projection_split<Angular>
+std::tuple<std::vector<int>, std::vector<int>, std::vector<float>, float>
+random_projection_split<Angular>
 (
     const Matrix<float> &data,
-    IntVec &parent,
-    IntVec &child0,
-    IntVec &child1,
+    IntVec &indices,
     RandomState &rng_state
 )
 {
     // timer_dtyp.start();
     size_t dim = data.ncols();
-    size_t size = parent.size();
+    size_t size = indices.size();
 
     size_t rand0 = rand_int(rng_state) % size;
     size_t rand1 = rand_int(rng_state) % size;
@@ -203,8 +204,8 @@ void random_projection_split<Angular>
     std::vector<float> hyperplane_vector(dim);
     for (size_t i = 0; i < dim; ++i)
     {
-        hyperplane_vector[i] = data(parent[rand0], i) / norm0
-            - data(parent[rand1], i) / norm1;
+        hyperplane_vector[i] = data(indices[rand0], i) / norm0
+            - data(indices[rand1], i) / norm1;
     }
 
     float hyperplane_norm = std::sqrt(
@@ -236,7 +237,7 @@ void random_projection_split<Angular>
         float margin = std::inner_product(
             hyperplane_vector.begin(),
             hyperplane_vector.end(),
-            data.begin(parent[i]),
+            data.begin(indices[i]),
             0.0f
         );
 
@@ -284,8 +285,8 @@ void random_projection_split<Angular>
     }
 
     // Now that we have the counts allocate arrays
-    child0.resize(cnt0);
-    child1.resize(cnt1);
+    std::vector<int> left_indices(cnt0);
+    std::vector<int> right_indices(cnt1);
     cnt0 = 0;
     cnt1 = 0;
     // Populate the arrays with graph_indices according to which
@@ -294,15 +295,16 @@ void random_projection_split<Angular>
     {
         if (side[i] == 0)
         {
-            child0[cnt0] = parent[i];
+            left_indices[cnt0] = indices[i];
             ++cnt0;
         }
         else
         {
-            child1[cnt1] = parent[i];
+            right_indices[cnt1] = indices[i];
             ++cnt1;
         }
     }
+    return std::make_tuple(left_indices, right_indices, hyperplane_vector, 0.0f);
 }
 
 
@@ -310,37 +312,41 @@ void random_projection_split<Angular>
 template<class DistanceType>
 void make_sparse_tree
 (
-    IntMatrix &rp_tree,
+    RPTree &rp_tree,
     const Matrix<float> &data,
-    IntVec parent,
+    IntVec indices,
     unsigned int leaf_size,
     RandomState &rng_state,
     int max_depth=100
 )
 {
-    if (parent.size() <= leaf_size)
+    if (indices.size() <= leaf_size)
     {
-        rp_tree.push_back(parent);
+        rp_tree.add_leaf(indices);
         return;
     }
     if (max_depth <= 0)
     {
         std::cout << "tree depth limit reached\n";
-        int parent_size = std::min(leaf_size, (unsigned int)parent.size());
-        parent.resize(parent_size);
-        rp_tree.push_back(parent);
+        // prune leaf to leaf_size
+        int parent_size = std::min(leaf_size, (unsigned int)indices.size());
+        indices.resize(parent_size);
+        rp_tree.add_leaf(indices);
         return;
     }
 
-    IntVec child0;
-    IntVec child1;
+    std::vector<int> left_indices;
+    std::vector<int> right_indices;
+    std::vector<float> hyperplane;
+    float offset;
 
-    random_projection_split<DistanceType>
+    std::tie
+    (
+        left_indices, right_indices, hyperplane, offset
+    ) = random_projection_split<DistanceType>
     (
         data,
-        parent,
-        child0,
-        child1,
+        indices,
         rng_state
     );
 
@@ -348,24 +354,30 @@ void make_sparse_tree
     (
         rp_tree,
         data,
-        child0,
+        left_indices,
         leaf_size,
         rng_state,
         max_depth - 1
     );
+
+    size_t left_subtree = rp_tree.get_index();
+
     make_sparse_tree<DistanceType>
     (
         rp_tree,
         data,
-        child1,
+        right_indices,
         leaf_size,
         rng_state,
         max_depth - 1
     );
+
+    size_t right_subtree = rp_tree.get_index();
+    rp_tree.add_node(left_subtree, right_subtree, offset, hyperplane);
 }
 
 // Builds a random projection tree.
-IntMatrix make_sparse_tree
+RPTree make_sparse_tree
 (
     const Matrix<float> &data,
     unsigned int leaf_size,
@@ -373,8 +385,7 @@ IntMatrix make_sparse_tree
     bool angular=false
 )
 {
-    // IntMatrix rp_tree(1 + data.nrows()/leaf_size);
-    IntMatrix rp_tree;
+    RPTree rp_tree(leaf_size);
 
     IntVec all_points (data.nrows());
     // all_points = [0,1,2,...]
@@ -403,7 +414,7 @@ IntMatrix make_sparse_tree
     return rp_tree;
 }
 
-std::vector<IntMatrix> make_forest
+std::vector<RPTree> make_forest
 (
     const Matrix<float> &data,
     int n_trees,
@@ -411,8 +422,8 @@ std::vector<IntMatrix> make_forest
     RandomState &rng_state
 )
 {
-    std::vector<IntMatrix> forest(n_trees);
-    #pragma omp parallel for //shared(forest) //num_threads(1)
+    std::vector<RPTree> forest(n_trees);
+    #pragma omp parallel for
     for (int i = 0; i < n_trees; ++i)
     {
         RandomState local_rng_state;
@@ -420,7 +431,7 @@ std::vector<IntMatrix> make_forest
         {
             local_rng_state[state] = rng_state[state] + i + 1;
         }
-        IntMatrix tree = make_sparse_tree(data, leaf_size, local_rng_state);
+        RPTree tree = make_sparse_tree(data, leaf_size, local_rng_state);
         forest[i] = tree;
     }
     return forest;
@@ -454,3 +465,82 @@ Matrix<int> get_leaves_from_forest
     return leaf_matrix;
 }
 
+Matrix<int> get_leaves_from_forest
+(
+    std::vector<RPTree> &forest
+)
+{
+    size_t leaf_size = forest[0].leaf_size;
+    size_t n_rows = 0;
+    for (const auto& tree : forest)
+    {
+        n_rows += tree.n_leaves;
+    }
+    Matrix<int> leaf_matrix(n_rows, leaf_size, -1);
+
+    int row = 0;
+    for (const auto& tree : forest)
+    {
+        for (const auto &node : tree.nodes)
+        {
+            if (node.indices.size() > 0)
+            {
+                for (size_t j = 0; j < node.indices.size(); ++j)
+                {
+                    leaf_matrix(row, j) = node.indices[j];
+                }
+                ++row;
+            }
+        }
+    }
+    return leaf_matrix;
+}
+
+std::ostream& operator<<(std::ostream &out, RPTNode &node)
+{
+    out << "[of=" << node.offset << ", hp="
+        << node.hyperplane << ", id=" << node.indices
+        << ", lr=" << node.left << "," << node.right << "]";
+    return out;
+}
+
+// Auxiliary function for recursively printing a rp tree.
+void _add_tree_from_to_stream
+(
+    std::ostream &out,
+    std::string prefix,
+    RPTree tree,
+    int from,
+    char is_left
+)
+{
+    if (from < 0)
+    {
+        return;
+    }
+
+    out << prefix;
+    out << (is_left && (from > 0) ? "├──" : "└──");
+
+    // Print current node
+    RPTNode current_node = tree.nodes[from];
+    out << current_node
+        << "\n";
+    std::string prefix_children = prefix + (is_left ? "│   " : "    ");
+
+    // Add children of current node.
+    int left = current_node.left;
+    int right = current_node.right;
+    _add_tree_from_to_stream(out, prefix_children, tree, left, true);
+    _add_tree_from_to_stream(out, prefix_children, tree, right, false);
+}
+
+std::ostream& operator<<(std::ostream &out, RPTree &tree)
+{
+    out << "Tree(leaf_size=" << tree.leaf_size << ", n_leaves="
+        << tree.n_leaves << ", n_nodes=" << tree.nodes.size() << ",\n";
+    int start = tree.nodes.size() - 1;
+    _add_tree_from_to_stream(out, "", tree, start, false);
+    out << ")\n";
+    return out;
+}

@@ -6,10 +6,28 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include <map>
+#include <numeric>
+#include <stdexcept>
+#include <string>
 #include <utility>
+#include <vector>
 
 const float PI = 3.14159265358979f;
+const float FLOAT_MAX = std::numeric_limits<float>::max();
+const float FLOAT_EPS = std::numeric_limits<float>::epsilon();
+
+/**
+ * @brief Identity function
+ */
+template<class T>
+T identity_function(T value)
+{
+    return value;
+}
 
 /**
  * @brief Squared euclidean distance.
@@ -1179,83 +1197,3 @@ float symmetric_kl_divergence(Iter0 first0, Iter0 last0, Iter1 first1)
 
     return result;
 }
-
-// named_distances = {
-    // # general minkowski distances
-    // "euclidean": euclidean,
-    // "l2": euclidean,
-    // "sqeuclidean": squared_euclidean,
-    // "manhattan": manhattan,
-    // "taxicab": manhattan,
-    // "l1": manhattan,
-    // "chebyshev": chebyshev,
-    // "linfinity": chebyshev,
-    // "linfty": chebyshev,
-    // "linf": chebyshev,
-    // "minkowski": minkowski,
-    // # Standardised/weighted distances
-    // "seuclidean": standardised_euclidean,
-    // "standardised_euclidean": standardised_euclidean,
-    // "wminkowski": weighted_minkowski,
-    // "weighted_minkowski": weighted_minkowski,
-    // "mahalanobis": mahalanobis,
-    // # Other distances
-    // "canberra": canberra,
-    // "cosine": cosine,
-    // "dot": dot,
-    // "correlation": correlation,
-    // "haversine": haversine,
-    // "braycurtis": bray_curtis,
-    // "spearmanr": spearmanr,
-    // "tsss": tsss,
-    // "true_angular": true_angular,
-    // # Distribution distances
-    // "hellinger": hellinger,
-    // "kantorovich": kantorovich,
-    // "wasserstein": kantorovich,
-    // "wasserstein_1d": wasserstein_1d,
-    // "wasserstein-1d": wasserstein_1d,
-    // "kantorovich-1d": wasserstein_1d,
-    // "kantorovich_1d": wasserstein_1d,
-    // "circular_kantorovich": circular_kantorovich,
-    // "circular_wasserstein": circular_kantorovich,
-    // "sinkhorn": sinkhorn,
-    // "jensen-shannon": jensen_shannon_divergence,
-    // "jensen_shannon": jensen_shannon_divergence,
-    // "symmetric-kl": symmetric_kl_divergence,
-    // "symmetric_kl": symmetric_kl_divergence,
-    // "symmetric_kullback_liebler": symmetric_kl_divergence,
-    // # Binary distances
-    // "hamming": hamming,
-    // "jaccard": jaccard,
-    // "dice": dice,
-    // "matching": matching,
-    // "kulsinski": kulsinski,
-    // "rogerstanimoto": rogers_tanimoto,
-    // "russellrao": russellrao,
-    // "sokalsneath": sokal_sneath,
-    // "sokalmichener": sokal_michener,
-    // "yule": yule,
-// }
-
-// # Some distances have a faster to compute alternative that
-// # retains the same ordering of distances. We can compute with
-// # this instead, and then correct the final distances when complete.
-// # This provides a list of distances that have such an alternative
-// # along with the alternative distance function and the correction
-// # function to be applied.
-// fast_distance_alternatives = {
-    // "euclidean": {"dist": squared_euclidean, "correction": np.sqrt},
-    // "l2": {"dist": squared_euclidean, "correction": np.sqrt},
-    // "cosine": {"dist": alternative_cosine, "correction": correct_alternative_cosine},
-    // "dot": {"dist": alternative_dot, "correction": correct_alternative_cosine},
-    // "true_angular": {
-        // "dist": alternative_cosine,
-        // "correction": true_angular_from_alt_cosine,
-    // },
-    // "hellinger": {
-        // "dist": alternative_hellinger,
-        // "correction": correct_alternative_hellinger,
-    // },
-    // "jaccard": {"dist": alternative_jaccard, "correction": correct_alternative_jaccard},
-// }

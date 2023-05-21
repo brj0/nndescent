@@ -14,28 +14,30 @@
 typedef std::vector<int> IntVec;
 typedef std::vector<IntVec> IntMatrix;
 
+
 template <class T>
 class Matrix
 {
-    public:
-        Matrix() {}
-        Matrix(size_t rows, size_t cols);
-        Matrix(size_t rows, size_t cols, const T &const_val);
-        Matrix(size_t rows, size_t cols, T *data_ptr);
-        Matrix(size_t rows, std::vector<T> &data);
-        T& operator()(size_t i, size_t j);
-        const T operator()(size_t i, size_t j) const;
-        size_t nrows() const { return m_rows; }
-        size_t ncols() const { return m_cols; }
-        T* operator[](size_t i){ return m_ptr + i*m_cols; }
-        T* begin(size_t i) const { return m_ptr + i*m_cols; }
-        T* end(size_t i) const { return m_ptr + (i + 1)*m_cols; }
-        std::vector<T> m_data;
-        T *m_ptr;
+public:
+    Matrix() {}
+    Matrix(size_t rows, size_t cols);
+    Matrix(size_t rows, size_t cols, const T &const_val);
+    Matrix(size_t rows, size_t cols, T *data_ptr);
+    Matrix(size_t rows, std::vector<T> &data);
+    void resize(size_t rows, size_t cols);
+    T& operator()(size_t i, size_t j);
+    const T operator()(size_t i, size_t j) const;
+    size_t nrows() const { return m_rows; }
+    size_t ncols() const { return m_cols; }
+    T* operator[](size_t i){ return m_ptr + i*m_cols; }
+    T* begin(size_t i) const { return m_ptr + i*m_cols; }
+    T* end(size_t i) const { return m_ptr + (i + 1)*m_cols; }
+    std::vector<T> m_data;
+    T *m_ptr;
 
-    private:
-        size_t m_rows;
-        size_t m_cols;
+private:
+    size_t m_rows;
+    size_t m_cols;
 };
 
 template <class T>
@@ -72,6 +74,15 @@ Matrix<T>::Matrix(size_t rows, std::vector<T> &data)
     , m_rows(rows)
     , m_cols(data.size()/rows)
 {
+}
+
+template <class T>
+void Matrix<T>::resize(size_t rows, size_t cols)
+{
+    m_rows = rows;
+    m_cols = cols;
+    m_data.resize(rows*cols);
+    m_ptr = &m_data[0];
 }
 
 template <class T>
@@ -122,39 +133,40 @@ std::ostream& operator<<(std::ostream &out, Matrix<T> const& matrix)
 template <class KeyType>
 class HeapList
 {
-    private:
-        const size_t n_heaps;
-        const size_t n_nodes;
+private:
+    size_t n_heaps;
+    size_t n_nodes;
 
-    public:
-        Matrix<int> indices;
-        Matrix<KeyType> keys;
-        // std::vector<bool> is special from all other std::vector
-        // specializations. Use char instead
-        Matrix<char> flags;
-        HeapList(size_t n_heaps, size_t n_nodes, KeyType key0, char flag0)
-            : n_heaps(n_heaps)
-            , n_nodes(n_nodes)
-            , indices(n_heaps, n_nodes, NONE)
-            , keys(n_heaps, n_nodes, key0)
-            , flags(n_heaps, n_nodes, flag0)
-            {}
-        HeapList(size_t n_heaps, size_t n_nodes, KeyType key0)
-            : n_heaps(n_heaps)
-            , n_nodes(n_nodes)
-            , indices(n_heaps, n_nodes, NONE)
-            , keys(n_heaps, n_nodes, key0)
-            , flags(0, 0)
-            {}
-        size_t nheaps() const {return n_heaps;}
-        size_t nnodes() const {return n_nodes;}
-        bool noflags() const { return flags.nrows() == 0; }
-        KeyType max(size_t i) const { return keys(i, 0); }
-        size_t size(size_t i) const;
-        int checked_push(size_t i, int idx, KeyType key, char flag);
-        int checked_push(size_t i, int idx, KeyType key);
-        void siftdown(size_t i, size_t stop);
-        void heapsort();
+public:
+    Matrix<int> indices;
+    Matrix<KeyType> keys;
+    // std::vector<bool> is special from all other std::vector
+    // specializations. Use char instead
+    Matrix<char> flags;
+    HeapList() {}
+    HeapList(size_t n_heaps, size_t n_nodes, KeyType key0, char flag0)
+        : n_heaps(n_heaps)
+        , n_nodes(n_nodes)
+        , indices(n_heaps, n_nodes, NONE)
+        , keys(n_heaps, n_nodes, key0)
+        , flags(n_heaps, n_nodes, flag0)
+        {}
+    HeapList(size_t n_heaps, size_t n_nodes, KeyType key0)
+        : n_heaps(n_heaps)
+        , n_nodes(n_nodes)
+        , indices(n_heaps, n_nodes, NONE)
+        , keys(n_heaps, n_nodes, key0)
+        , flags(0, 0)
+        {}
+    size_t nheaps() const {return n_heaps;}
+    size_t nnodes() const {return n_nodes;}
+    bool noflags() const { return flags.nrows() == 0; }
+    KeyType max(size_t i) const { return keys(i, 0); }
+    size_t size(size_t i) const;
+    int checked_push(size_t i, int idx, KeyType key, char flag);
+    int checked_push(size_t i, int idx, KeyType key);
+    void siftdown(size_t i, size_t stop);
+    void heapsort();
 };
 
 // TODO parallel
@@ -163,7 +175,6 @@ void HeapList<KeyType>::heapsort()
 {
     int tmp_id;
     KeyType tmp_key;
-    // char tmp_flag;
 
     for (size_t i = 0; i < n_heaps; ++i)
     {
@@ -171,15 +182,12 @@ void HeapList<KeyType>::heapsort()
         {
             tmp_id = indices(i, 0);
             tmp_key = keys(i, 0);
-            // tmp_flag = flags(i, 0);
 
             indices(i, 0) = indices(i, j);
             keys(i, 0) = keys(i, j);
-            // flags(i, 0) = flags(i, j);
 
             indices(i, j) = tmp_id;
             keys(i, j) = tmp_key;
-            // flags(i, j) = tmp_flag;
 
             this->siftdown(i, j);
         }
@@ -193,7 +201,6 @@ void HeapList<KeyType>::siftdown(size_t i, size_t stop)
     // criterion is met.
     KeyType key = keys(i, 0);
     int idx = indices(i, 0);
-    // char flag = flags(i, 0);
 
     size_t current = 0;
     size_t left_child;
@@ -244,14 +251,12 @@ void HeapList<KeyType>::siftdown(size_t i, size_t stop)
         }
         indices(i, current) = indices(i, swap);
         keys(i, current) = keys(i, swap);
-        // flags(i, current) = flags(i, swap);
 
         current = swap;
     }
     // Insert node at current position.
     indices(i, current) = idx;
     keys(i, current) = key;
-    // flags(i, current) = flag;
 }
 
 
@@ -438,7 +443,7 @@ size_t HeapList<KeyType>::size(size_t i) const
     return count;
 }
 
-// // Auxiliary function for recursively printing a binary Heap.
+// Auxiliary function for recursively printing a binary Heap.
 template <class KeyType>
 void _add_heap_from_to_stream
 (
@@ -474,10 +479,9 @@ void _add_heap_from_to_stream
 template <class KeyType>
 void add_heap_to_stream(std::ostream &out, HeapList<KeyType> heaplist, size_t i)
 {
-    out << i << " [size=" << heaplist.nheaps() << "]\n";
+    out << i << " [size=" << heaplist.nnodes() << "]\n";
     _add_heap_from_to_stream(out, "    ", heaplist, i, 0, false);
 }
-
 
 template <class KeyType>
 std::ostream& operator<<(std::ostream &out, HeapList<KeyType> &heaplist)
@@ -533,3 +537,5 @@ typedef struct
 
 std::ostream& operator<<(std::ostream &out, NNUpdate &update);
 std::ostream& operator<<(std::ostream &out, std::vector<NNUpdate> &updates);
+
+

@@ -1,6 +1,7 @@
 #include <chrono>
 #include "utils.h"
 
+Timer global_timer;
 
 // Random number generator for seeding, code from
 // https://prng.di.unimi.it/splitmix64.c
@@ -40,6 +41,19 @@ uint64_t rand_int(RandomState &s)
     s[2] ^= t;
     s[3] = ((s[3] << 45) | (s[3] >> 19));
     return result;
+}
+
+float rand_float(RandomState &s)
+{
+    const uint64_t result = s[0] + s[3];
+    const uint64_t t = s[1] << 17;
+    s[2] ^= s[0];
+    s[3] ^= s[1];
+    s[1] ^= s[2];
+    s[0] ^= s[3];
+    s[2] ^= t;
+    s[3] = ((s[3] << 45) | (s[3] >> 19));
+    return (float)result / ((float)UINT64_MAX);
 }
 
 void log(std::string text, bool verbose)

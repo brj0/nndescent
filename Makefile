@@ -1,6 +1,6 @@
 appname := nnd
 
-sources := dtypes.cpp rp_trees.cpp nnd.cpp test.cpp utils.cpp
+sources := src/dtypes.cpp src/rp_trees.cpp src/nnd.cpp tests/test0.cpp src/utils.cpp
 objects := $(patsubst %.cpp,%.o,$(sources))
 depends := $(patsubst %.cpp,%.d,$(sources))
 
@@ -31,7 +31,7 @@ $(appname): $(objects)
 # $(CXX) $(CXXFLAGS) -MMD -c $<
 
 clean:
-	rm -fr *.o *.d *.h.gch $(appname) build *.so *.egg-info .eggs gmon.out gprof.png
+	rm -fr src/*.o tests/*.o tests/*.d src/*.d src/*.h.gch $(appname) build *.so *.egg-info .eggs gmon.out gprof.png
 	ctags -R .
 
 run:

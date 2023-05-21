@@ -18,10 +18,6 @@
 #include "nnd.h"
 #include "utils.h"
 #include "rp_trees.h"
-#include "distances.h"
-
-// Global timer for debugging
-Timer timer;
 
 // Initializes heaps by choosing nodes randomly.
 void init_random
@@ -45,9 +41,40 @@ void init_random
         {
             int idx1 = rand_int(rng_state) % current_graph.nheaps();
             float d = dist(data.begin(idx0), data.end(idx0), data.begin(idx1));
-            current_graph.checked_push(idx0, idx1, d, FALSE);
+            current_graph.checked_push(idx0, idx1, d, NEW);
         }
     }
+}
+
+
+// Adds every node to its own neighborhod.
+void add_zero_node
+(
+    HeapList<float> &current_graph
+)
+{
+    for (size_t idx0 = 0; idx0 < current_graph.nheaps(); ++idx0)
+    {
+        current_graph.checked_push(idx0, idx0, 0.0f, NEW);
+    }
+}
+
+void correct_distances
+(
+    Function1d distance_correction,
+    Matrix<float> &in,
+    Matrix<float> &out
+)
+{
+    out.resize(in.nrows(), in.ncols());
+    for (size_t i = 0; i < in.nrows(); ++i)
+    {
+        for (size_t j = 0; j < in.ncols(); ++j)
+        {
+            out(i, j) = distance_correction(in(i,j));
+        }
+    }
+    return;
 }
 
 
@@ -79,10 +106,6 @@ void update_by_leaves(
             for (int j = 0; j < leaf_size; ++j)
             {
                 int idx0 = leaf_array(i, j);
-                // std::cout << "i =" << i << " j=" << j << " leafsize=" << leaf_size
-                    // << " blockst=" << block_start << " blocke=" << block_end << " blos="
-                    // << block_size << " nleav=" << n_leaves  << " idx0=" << idx0
-                    // << "\n";
                 if (idx0 == NONE)
                 {
                     break;
@@ -104,7 +127,6 @@ void update_by_leaves(
                     {
                         NNUpdate update = {idx0, idx1, d};
                         updates[thread].push_back(update);
-                        // std::cout << update <<" i="<<i<<" j="<<j<<" k="<<k<<"\n";
                     }
                 }
             }
@@ -126,11 +148,11 @@ void update_by_leaves(
                 float d = update.key;
                 if (idx0 % n_threads == thread)
                 {
-                    current_graph.checked_push(idx0, idx1, d, FALSE);
+                    current_graph.checked_push(idx0, idx1, d, NEW);
                 }
                 if (idx1 % n_threads == thread)
                 {
-                    current_graph.checked_push(idx1, idx0, d, FALSE);
+                    current_graph.checked_push(idx1, idx0, d, NEW);
                 }
             }
         }
@@ -146,7 +168,6 @@ void update_by_rp_forest(
 {
     for (const auto& tree : forest)
     {
-        // std::cout << "tree=" << tree << "\n" << "graph=" << current_graph;
         for (const auto& leaf : tree)
         {
             for (const int& idx0 : leaf)
@@ -160,8 +181,8 @@ void update_by_rp_forest(
                     float d = dist(
                         data.begin(idx0), data.end(idx0), data.begin(idx1)
                     );
-                    current_graph.checked_push(idx0, idx1, d, FALSE);
-                    current_graph.checked_push(idx1, idx0, d, FALSE);
+                    current_graph.checked_push(idx0, idx1, d, NEW);
+                    current_graph.checked_push(idx1, idx0, d, NEW);
 
                 }
             }
@@ -204,7 +225,7 @@ void sample_candidates
 
                 int priority = rand_int(local_rng_state);
 
-                if (flag == FALSE)
+                if (flag == NEW)
                 {
                     if (idx0 % n_threads == thread)
                     {
@@ -231,7 +252,7 @@ void sample_candidates
             }
         }
     }
-    // Mark sampled nodes in current_graph as flag.
+    // Mark sampled nodes in current_graph as old.
     for (size_t idx0 = 0; idx0 < current_graph.nheaps(); ++idx0)
     {
         for (size_t j = 0; j < current_graph.nnodes(); ++j)
@@ -241,7 +262,7 @@ void sample_candidates
             {
                 if (new_candidates.indices(idx0, k) == idx1)
                 {
-                    current_graph.flags(idx0, j) = TRUE;
+                    current_graph.flags(idx0, j) = OLD;
                     break;
                 }
             }
@@ -296,7 +317,6 @@ std::vector<std::vector<NNUpdate>> generate_graph_updates
                     {
                         NNUpdate update = {idx0, idx1, d};
                         updates[thread].push_back(update);
-                        // std::cout << "new " << update <<" i="<<i<<" j="<<j<<" k="<<k<<"\n";
                     }
 
                 }
@@ -317,7 +337,6 @@ std::vector<std::vector<NNUpdate>> generate_graph_updates
                     {
                         NNUpdate update = {idx0, idx1, d};
                         updates[thread].push_back(update);
-                        // std::cout << "old " << update <<" i="<<i<<" j="<<j<<" k="<<k<<"\n";
                     }
                 }
             }
@@ -356,11 +375,11 @@ int apply_graph_updates
                 float d = update.key;
                 if (idx0 % n_threads == thread)
                 {
-                    n_changes += current_graph.checked_push(idx0, idx1, d, TRUE);
+                    n_changes += current_graph.checked_push(idx0, idx1, d, NEW);
                 }
                 if (idx1 % n_threads == thread)
                 {
-                    n_changes += current_graph.checked_push(idx1, idx0, d, TRUE);
+                    n_changes += current_graph.checked_push(idx1, idx0, d, NEW);
                 }
             }
         }
@@ -384,12 +403,11 @@ void nn_descent
     bool verbose
 )
 {
-    timer.start();
     assert(current_graph.nheaps() == data.nrows());
 
     log("NN descent for " + std::to_string(n_iters) + " iterations", verbose);
 
-    timer.stop("nn descent: init");
+    global_timer.stop("nn descent: init");
 
     for (int iter = 0; iter < n_iters; ++iter)
     {
@@ -404,7 +422,7 @@ void nn_descent
         HeapList<int> new_candidates(data.nrows(), max_candidates, MAX_INT);
         HeapList<int> old_candidates(data.nrows(), max_candidates, MAX_INT);
 
-        timer.start();
+        global_timer.stop("Init HeapLists");
 
         sample_candidates(
             current_graph,
@@ -415,7 +433,7 @@ void nn_descent
         );
         // std::cout << "NEW=" << new_candidates << "\n";
         // std::cout << "OLD=" << old_candidates << "\n";
-        timer.stop("sample_candidates");
+        global_timer.stop("sample_candidates");
         // std::cout << "current_graph with flags=" << current_graph;
 
         std::vector<std::vector<NNUpdate>> updates = generate_graph_updates(
@@ -428,7 +446,7 @@ void nn_descent
             verbose
         );
         // std::cout << "updates=" << updates;
-        timer.stop("generate_graph_updates");
+        global_timer.stop("generate_graph_updates");
 
         int cnt = apply_graph_updates(
             current_graph,
@@ -437,13 +455,13 @@ void nn_descent
         );
         // std::cout << "current_graph updated=" << current_graph;
         log("\t\t" + std::to_string(cnt) + " updates applied", verbose);
-        timer.stop("apply apply_graph_updates updates");
+        global_timer.stop("apply apply_graph_updates updates");
 
         if (cnt < delta * data.nrows() * n_neighbors)
         {
             log(
                 "Stopping threshold met -- exiting after "
-                    + std::to_string(iter) + " iterations",
+                    + std::to_string(iter + 1) + " iterations",
                 verbose
             );
             break;
@@ -537,31 +555,34 @@ void NNDescent::set_parameters(Parms &parms)
         || (metric == "jaccard")
     )
     {
-        _angular_trees = true;
+        angular_trees = true;
     }
     else
     {
-        _angular_trees = false;
+        angular_trees = false;
     }
     seed_state(rng_state, seed);
     this->get_distance_function();
+    if (verbose)
+    {
+        std::cout << *this;
+    }
 }
 
 NNDescent::NNDescent(Matrix<float> &input_data, Parms &parms)
     : data(input_data)
-    , current_graph(input_data.nrows(), parms.n_neighbors, FLOAT_MAX, FALSE)
+    , current_graph(input_data.nrows(), parms.n_neighbors, FLOAT_MAX, NEW)
 {
-    timer.start();
+    global_timer.stop("NNDescent constructor with parms");
     this->set_parameters(parms);
-    std::cout << *this;
     this->start();
 }
 
 NNDescent::NNDescent(Matrix<float> &input_data, int n_neighbors)
     : data(input_data)
-    , current_graph(input_data.nrows(), n_neighbors, FLOAT_MAX, FALSE)
+    , current_graph(input_data.nrows(), n_neighbors, FLOAT_MAX, NEW)
 {
-    timer.start();
+    global_timer.stop("NNDescent constructor empty parms");
 }
 
 void NNDescent::start()
@@ -572,7 +593,7 @@ void NNDescent::start()
         return;
     }
 
-    timer.stop("Constructor");
+    global_timer.stop("Contructor to start");
 
     if (tree_init)
     {
@@ -580,29 +601,29 @@ void NNDescent::start()
             "Building RP forest with " + std::to_string(n_trees) + " trees",
             verbose
         );
-        std::vector<IntMatrix> forest = make_forest(
+        std::vector<RPTree> forest = make_forest(
             data, n_trees, leaf_size, rng_state
         );
         // std::cout << "forest=" << forest;
-        timer.stop("make forest");
+        global_timer.stop("make forest");
 
         log("Update Graph by  RP forest", verbose);
 
-        Matrix<int> leaf_array = get_leaves_from_forest(forest, leaf_size);
+        Matrix<int> leaf_array = get_leaves_from_forest(forest);
         // std::cout << "leaf_array=" << leaf_array;
-        timer.stop("make leaf array");
+        global_timer.stop("make leaf array");
         update_by_leaves(data, current_graph, leaf_array, dist, n_threads);
-        timer.stop("update by leaf array");
+        global_timer.stop("update by leaf array");
 
 
         // update_by_rp_forest(data, current_graph, forest, dist);
         // std::cout << current_graph;
-        timer.stop("update graph by rp-tree forest");
+        global_timer.stop("update graph by rp-tree forest");
     }
 
     init_random(data, current_graph, n_neighbors, dist, rng_state);
     // std::cout << "curent graph 0=" << current_graph;
-    timer.stop("random init neighbours");
+    global_timer.stop("random init neighbours");
 
     nn_descent(
         data,
@@ -616,19 +637,117 @@ void NNDescent::start()
         n_threads,
         verbose
     );
-    timer.stop("nn_descent");
+    global_timer.stop("nn_descent");
+
+    // Make shure every nodes neighborhod contains the node itself.
+    add_zero_node(current_graph);
+
     current_graph.heapsort();
-    timer.stop("heapsort");
-    neighbor_graph = current_graph.indices;
+    global_timer.stop("heapsort");
+
+    correct_distances(
+        distance_correction, current_graph.keys, neighbor_distances
+    );
+
+    neighbor_indices = current_graph.indices;
     // std::cout << "end current graph=" << current_graph;
-    // std::cout << neighbor_graph;
+    // std::cout << neighbor_indices;
     // std::cout << *this;
+}
+
+void prune_long_edges
+(
+    const Matrix<float> &data,
+    HeapList<float> &graph,
+    RandomState &rng_state,
+    Metric &dist,
+    int n_threads,
+    float prune_probability=1.0f
+)
+{
+    // #pragma omp parallel for num_threads(n_threads)
+    for (size_t i = 0; i < graph.nheaps(); ++i)
+    {
+        std::vector<int> new_indices = { graph.indices(i, 0) };
+        std::vector<float> new_keys = { graph.keys(i, 0) };
+        for (size_t j = 1; j < graph.nnodes(); ++j)
+        {
+            int idx = graph.indices(i, j);
+            float key = graph.keys(i, j);
+            if  (idx == NONE)
+            {
+                break;
+            }
+
+            bool add_node = true;
+
+            for (size_t k = 0; k < new_indices.size(); ++k)
+            {
+                int new_idx = new_indices[k];
+                float new_key = new_keys[k];
+                float d = dist(
+                    data.begin(idx), data.end(idx), data.begin(new_idx)
+                );
+                if (new_key > FLOAT_EPS && d < key)
+                {
+                    // idx is closer to a node in the neighborhood than
+                    // to the central node i, i.e. it is a long edge.
+                    if (rand_float(rng_state) < prune_probability)
+                    {
+                        add_node = false;
+                        break;
+                    }
+
+
+                }
+            }
+            if (add_node)
+            {
+                new_indices.push_back(idx);
+                new_keys.push_back(key);
+            }
+        }
+        for (size_t j = 0; j < graph.nnodes(); ++j)
+        {
+            if  (j < new_indices.size())
+            {
+                graph.indices(i, j) = new_indices[j];
+                graph.keys(i, j) = new_keys[j];
+            }
+            else
+            {
+                graph.indices(i, j) = NONE;
+                graph.keys(i, j) = FLOAT_MAX;
+            }
+        }
+    }
+}
+
+void NNDescent::init_search_graph()
+{
+    search_graph = current_graph;
+    prune_long_edges
+    (
+        data,
+        search_graph,
+        rng_state,
+        dist,
+        n_threads
+    );
+    std::cout << "search_graph=\n" << search_graph << "\n";
+    std::cout << "currentindices=\n" << current_graph.indices << "\n";
+    std::cout << "indices=\n" << search_graph.indices << "\n";
+    std::cout << "currentindices=\n" << current_graph.keys << "\n";
+    std::cout << "keys=\n" << search_graph.keys << "\n";
 }
 
 Matrix<int> NNDescent::brute_force()
 {
+    ProgressBar bar(data.nrows(), 250, verbose);
+    #pragma omp parallel for num_threads(n_threads)
     for (size_t idx0 = 0; idx0 < data.nrows(); ++idx0)
     {
+        bar.show();
         for (size_t idx1 = 0; idx1 < data.nrows(); ++idx1)
         {
             float d = dist(
@@ -638,14 +757,14 @@ Matrix<int> NNDescent::brute_force()
         }
     }
     current_graph.heapsort();
-    neighbor_graph = current_graph.indices;
-    return neighbor_graph;
+    neighbor_indices = current_graph.indices;
+    return neighbor_indices;
 }
 
 std::ostream& operator<<(std::ostream &out, const NNDescent &nnd)
 {
     out << "NNDescent(\n\t"
-        << "data=Matrix<float>(n_rows= " <<  nnd.data.nrows() << ", n_cols="
+        << "data=Matrix<float>(n_rows=" <<  nnd.data.nrows() << ", n_cols="
         <<  nnd.data.ncols() << "),\n\t"
         << "metric=" << nnd.metric << ",\n\t"
         << "n_neighbors=" << nnd.n_neighbors << ",\n\t"
@@ -665,7 +784,7 @@ std::ostream& operator<<(std::ostream &out, const NNDescent &nnd)
         << "verbose=" << nnd.verbose  << ",\n\t"
         << "algorithm=" << nnd.algorithm  << ",\n"
         << "\n\t"
-        << "_angular_trees=" << nnd._angular_trees  << ",\n"
+        << "angular_trees=" << nnd.angular_trees  << ",\n"
         << ")\n";
     return out;
 }
@@ -675,7 +794,8 @@ void NNDescent::get_distance_function()
 
     if (metric == "euclidean")
     {
-        dist = euclidean<It, It>;
+        dist = squared_euclidean<It, It>;
+        distance_correction = std::sqrt;
     }
     else if (metric == "sqeuclidean")
     {
@@ -714,7 +834,9 @@ void NNDescent::get_distance_function()
     }
     else if (metric == "dot")
     {
-        dist = dot<It, It>;
+        dist = alternative_dot<It, It>;
+        // TODO dot and cosine data must be normed
+        // dist = dot<It, It>;
     }
     else if (metric == "correlation")
     {
@@ -808,6 +930,11 @@ void NNDescent::get_distance_function()
     else
     {
         throw std::invalid_argument("invalid metric");
+    }
+
+    if (!distance_correction)
+    {
+        distance_correction = identity_function;
     }
 }
 
