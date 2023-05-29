@@ -1,3 +1,9 @@
+"""
+Test distance functions of pynndescent. The values are the same as in the
+corresponding cpp file.
+"""
+
+
 import numpy as np
 from pynndescent.distances import *
 

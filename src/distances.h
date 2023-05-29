@@ -16,18 +16,26 @@
 #include <utility>
 #include <vector>
 
+
+namespace nndescent
+{
+
+
 const float PI = 3.14159265358979f;
 const float FLOAT_MAX = std::numeric_limits<float>::max();
+const float FLOAT_MIN = std::numeric_limits<float>::min();
 const float FLOAT_EPS = std::numeric_limits<float>::epsilon();
 
+
 /**
- * @brief Identity function
+ * @brief Identity function.
  */
 template<class T>
 T identity_function(T value)
 {
     return value;
 }
+
 
 /**
  * @brief Squared euclidean distance.
@@ -43,21 +51,6 @@ float squared_euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
     return result;
 }
 
-/**
- * @brief Squared euclidean distance.
- */
-template<class Iter0, class Iter1>
-float _squared_euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
-{
-    float result = 0.0f;
-    while (first0 != last0)
-    {
-        result = std::move(result) + (*first0 - *first1)*(*first0 - *first1);
-        ++first0;
-        ++first1;
-    }
-    return result;
-}
 
 /**
  * @brief Standard euclidean distance.
@@ -75,14 +68,15 @@ float euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
     return std::sqrt(result);
 }
 
+
 /**
- * @brief Standardised euclidean distance.
+ * @brief Standardized euclidean distance.
  *
- * Euclidean distance standardised against a vector of standard
+ * Euclidean distance standardized against a vector of standard
  * deviations per coordinate.
  *
  * \f[
- *     D(x, y) = \sqrt{\sum_i \frac{(x_i - y_i)**2}{v_i}}
+ *     D(x, y) = \sqrt{\sum_i \frac{(x_i - y_i)^2}{v_i}}
  * \f]
  */
 template<class Iter0, class Iter1, class Iter2>
@@ -103,6 +97,7 @@ float standardised_euclidean
     return std::sqrt(result);
 }
 
+
 /**
  * @brief Manhattan, taxicab, or l1 distance.
  *
@@ -122,6 +117,7 @@ float manhattan(Iter0 first0, Iter0 last0, Iter1 first1)
     }
     return result;
 }
+
 
 /**
  * @brief Chebyshev or l-infinity distance.
@@ -168,37 +164,6 @@ float minkowski(Iter0 first0, Iter0 last0, Iter1 first1, float p)
     }
     return std::pow(result, 1.0f / p);
 }
-
-// template<class Iter0, class Iter1>
-// struct minkowski_with_fixed_parms
-// {
-    // float _p;
-    // minkowski_with_fixed_parms(float p) : _p(p) {}
-
-    // float operator()(Iter0 first0, Iter0 last0, Iter1 first1) const
-    // {
-        // return minkowski<Iter0, Iter1>(first0, last0, first1, _p);
-    // }
-// };
-// template<class Iter0, class Iter1>
-// struct minkowski_with_fixed_parms
-// {
-    // float _p;
-    // minkowski_with_fixed_parms(float p) : _p(p) {}
-
-    // template<typename It>
-    // static float minkowski_wrapper(It first0, It last0, It first1, float p)
-    // {
-        // return minkowski(first0, last0, first1, p);
-    // }
-
-    // float (*operator())(Iter0 first0, Iter0 last0, Iter1 first1) const
-    // {
-        // return &minkowski_wrapper<Iter0>; // return function pointer
-    // }
-// };
-
-
 
 
 /**
@@ -263,8 +228,9 @@ float mahalanobis(Iter0 first0, Iter0 last0, Iter1 first1, Iter2 matrix_first)
     return std::sqrt(result);
 }
 
+
 /**
- * @brief Hamming distance
+ * @brief Hamming distance.
  */
 template<class Iter0, class Iter1>
 float hamming(Iter0 first0, Iter0 last0, Iter1 first1)
@@ -304,6 +270,7 @@ float canberra(Iter0 first0, Iter0 last0, Iter1 first1)
     }
     return result;
 }
+
 
 /**
  * @brief Bray–Curtis dissimilarity.
@@ -352,6 +319,7 @@ float jaccard(Iter0 first0, Iter0 last0, Iter1 first1)
     return (float)(num_non_zero - num_equal) / num_non_zero;
 }
 
+
 /**
  * @brief Alternative Jaccard distance.
  */
@@ -373,6 +341,7 @@ float alternative_jaccard(Iter0 first0, Iter0 last0, Iter1 first1)
     }
     return -std::log2((float)num_equal / num_non_zero);
 }
+
 
 /**
  * @brief Correction function for Jaccard distance.
@@ -404,6 +373,7 @@ float matching(Iter0 first0, Iter0 last0, Iter1 first1)
     return (float)num_not_equal / size;
 }
 
+
 /**
  * @brief Dice.
  */
@@ -425,6 +395,7 @@ float dice(Iter0 first0, Iter0 last0, Iter1 first1)
     }
     return (float)num_not_equal / (2.0f * num_true_true + num_not_equal);
 }
+
 
 /**
  * @brief Kulsinski dissimilarity.
@@ -451,6 +422,7 @@ float kulsinski(Iter0 first0, Iter0 last0, Iter1 first1)
     );
 }
 
+
 /**
  * @brief Rogers-Tanimoto dissimilarity.
  */
@@ -467,6 +439,7 @@ float rogers_tanimoto(Iter0 first0, Iter0 last0, Iter1 first1)
     }
     return (2.0f * num_not_equal) / (dim + num_not_equal);
 }
+
 
 /**
  * @brief Russell-Rao dissimilarity.
@@ -494,6 +467,7 @@ float russellrao(Iter0 first0, Iter0 last0, Iter1 first1)
     }
     return (float)(dim - num_true_true) / dim;
 }
+
 
 /**
  * @brief Sokal-Michener dissimilarity.
@@ -535,6 +509,7 @@ float sokal_sneath(Iter0 first0, Iter0 last0, Iter1 first1)
     return (float)(num_not_equal) / (0.5f * num_true_true + num_not_equal);
 }
 
+
 /**
  * @brief Haversine distance.
  */
@@ -549,6 +524,7 @@ float haversine(Iter0 first0, Iter0 last0, Iter1 first1)
     );
     return 2.0f * std::asin(result);
 }
+
 
 /**
  * @brief Yule dissimilarity.
@@ -578,8 +554,9 @@ float yule(Iter0 first0, Iter0 last0, Iter1 first1)
     );
 }
 
+
 /**
- * @brief Cosine similarity
+ * @brief Cosine similarity.
  */
 template<class Iter0, class Iter1>
 float cosine(Iter0 first0, Iter0 last0, Iter1 first1)
@@ -606,7 +583,7 @@ float cosine(Iter0 first0, Iter0 last0, Iter1 first1)
 
 
 /**
- * @brief Alternative cosine similarity
+ * @brief Alternative cosine similarity.
  */
 template<class Iter0, class Iter1>
 float alternative_cosine(Iter0 first0, Iter0 last0, Iter1 first1)
@@ -636,8 +613,9 @@ float alternative_cosine(Iter0 first0, Iter0 last0, Iter1 first1)
     return std::log2(result);
 }
 
+
 /**
- * @brief Dot
+ * @brief Dot.
  */
 template<class Iter0, class Iter1>
 float dot(Iter0 first0, Iter0 last0, Iter1 first1)
@@ -656,7 +634,7 @@ float dot(Iter0 first0, Iter0 last0, Iter1 first1)
 
 
 /**
- * @brief Alternative dot
+ * @brief Alternative dot.
  */
 template<class Iter0, class Iter1>
 float alternative_dot(Iter0 first0, Iter0 last0, Iter1 first1)
@@ -717,6 +695,7 @@ float tsss(Iter0 first0, Iter0 last0, Iter1 first1)
     return triangle * sector;
 }
 
+
 /**
  * @brief True angular.
  */
@@ -761,6 +740,7 @@ void true_angular_from_alt_cosine(Iter first0, Iter last0, Iter first1)
     }
 }
 
+
 /**
  * @brief Correlation.
  */
@@ -802,8 +782,9 @@ float correlation(Iter0 first0, Iter0 last0, Iter1 first1)
     return 1.0f - dot_product / std::sqrt(norm0 * norm1);
 }
 
+
 /**
- * @brief Hellinger
+ * @brief Hellinger.
  */
 template<class Iter0, class Iter1>
 float hellinger(Iter0 first0, Iter0 last0, Iter1 first1)
@@ -832,8 +813,9 @@ float hellinger(Iter0 first0, Iter0 last0, Iter1 first1)
     return std::sqrt(1.0f - result / std::sqrt(l1_norm0 * l1_norm1));
 }
 
+
 /**
- * @brief Alternative Hellinger
+ * @brief Alternative Hellinger.
  */
 template<class Iter0, class Iter1>
 float alternative_hellinger(Iter0 first0, Iter0 last0, Iter1 first1)
@@ -867,6 +849,7 @@ float alternative_hellinger(Iter0 first0, Iter0 last0, Iter1 first1)
     return std::log2(result);
 }
 
+
 /**
  * @brief Correction function for alternative Hellinger.
  */
@@ -878,6 +861,7 @@ void correct_alternative_hellinger(Iter first0, Iter last0, Iter first1)
         (*first1) = std::sqrt(1.0f - std::pow(2.0f, -*first0));
     }
 }
+
 
 template<class Iter>
 std::vector<float> rankdata
@@ -975,8 +959,9 @@ std::vector<float> rankdata
     return result;
 }
 
+
 /**
- * @brief Spearmanr
+ * @brief Spearman rho.
  */
 template<class Iter0, class Iter1>
 float spearmanr(Iter0 first0, Iter0 last0, Iter1 first1)
@@ -990,7 +975,7 @@ float spearmanr(Iter0 first0, Iter0 last0, Iter1 first1)
 
 
 /**
- * @brief Jensen Shannon divergence
+ * @brief Jensen Shannon divergence.
  */
 template<class Iter0, class Iter1>
 float jensen_shannon_divergence(Iter0 first0, Iter0 last0, Iter1 first1)
@@ -1025,8 +1010,9 @@ float jensen_shannon_divergence(Iter0 first0, Iter0 last0, Iter1 first1)
     return result;
 }
 
+
 /**
- * @brief Wasserstein 1d
+ * @brief Wasserstein 1d.
  */
 template<class Iter0, class Iter1>
 float wasserstein_1d(Iter0 first0, Iter0 last0, Iter1 first1, float p)
@@ -1071,6 +1057,7 @@ float wasserstein_1d(Iter0 first0, Iter0 last0, Iter1 first1, float p)
     return minkowski(cdf0.begin(), cdf0.end(), cdf1.begin(), p);
 }
 
+
 template<class T>
 T median(std::vector<T> &vec)
 {
@@ -1089,8 +1076,9 @@ T median(std::vector<T> &vec)
     return med;
 }
 
+
 /**
- * @brief Circular Kantorovich
+ * @brief Circular Kantorovich.
  */
 template<class Iter0, class Iter1>
 float circular_kantorovich(Iter0 first0, Iter0 last0, Iter1 first1, float p)
@@ -1162,6 +1150,10 @@ float circular_kantorovich(Iter0 first0, Iter0 last0, Iter1 first1, float p)
     throw std::invalid_argument("Invalid p supplied to Kantorvich distance");
 }
 
+
+/**
+ * @brief Symmetric Kullback-Leibler divergence.
+ */
 template<class Iter0, class Iter1>
 float symmetric_kl_divergence(Iter0 first0, Iter0 last0, Iter1 first1)
 {
@@ -1197,3 +1189,6 @@ float symmetric_kl_divergence(Iter0 first0, Iter0 last0, Iter1 first1)
 
     return result;
 }
+
+
+} // namespace nndescent

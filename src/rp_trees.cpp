@@ -6,8 +6,11 @@
 #include "utils.h"
 
 
+namespace nndescent {
 
-// Timer timer_dtyp;
+
+typedef std::vector<int> IntVec;
+typedef std::vector<IntVec> IntMatrix;
 
 // Dummy DistanceType classes for templates
 class Euclidean {};
@@ -544,3 +547,5 @@ std::ostream& operator<<(std::ostream &out, RPTree &tree)
     out << ")\n";
     return out;
 }
+
+} // namespace nndescent

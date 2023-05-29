@@ -6,6 +6,8 @@
 #include <string>
 #include <iomanip>
 
+namespace nndescent {
+
 const int NONE = -1;
 const int STATE_SIZE = 4;
 
@@ -40,62 +42,63 @@ class Timer
         }
 };
 
-// Global timer for debugging
-// TODO del
-extern Timer global_timer;
 
 class ProgressBar
 {
 private:
     int end;
     int cur;
+    const int width;
     int interval;
     bool verbose;
     std::string prefix = "";
 public:
-    ProgressBar(int limit, int interval, bool verbose, std::string prefix="")
+    ProgressBar(int limit, bool verbose, std::string prefix="")
         : end(limit)
         , cur(0)
-        , interval(interval)
+        , width(50)
+        , interval(limit / width + 1)
         , verbose(verbose)
         , prefix(prefix)
         {}
 
     void show()
     {
+        if (!verbose)
+        {
+            return;
+        }
         #pragma omp critical
         {
             ++cur;
         }
-        if (!verbose || ((cur != end) && (cur % interval != 0)))
+        if ((cur != end) && (cur % interval != 0))
         {
             return;
         }
-        const int width = 50;
-        std::cout.flush();
-
-        std::cout << prefix << "[";
+        std::stringstream prog_bar;
+        prog_bar << prefix << "[";
 
         int pos = width * cur / end;
         for (int i = 0; i < width; ++i)
         {
             if (i < pos)
             {
-                std::cout << "=";
+                prog_bar << "=";
             }
             else if (i == pos)
             {
-                std::cout << ">";
+                prog_bar << ">";
             }
             else
             {
-                std::cout << " ";
+                prog_bar << " ";
             }
         }
-        std::cout << "] " << int(cur * 100 / end) << " %\r";
+        prog_bar << "] " << int(cur * 100 / end) << " %\r";
         #pragma omp critical
         {
-            std::cout.flush();
+            std::cout << prog_bar.str() << std::flush;
         }
         if (cur == end)
         {
@@ -105,3 +108,5 @@ public:
 };
 
 void log(std::string text, bool verbose=true);
+
+} // namespace nndescent

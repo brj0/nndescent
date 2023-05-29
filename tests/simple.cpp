@@ -1,17 +1,19 @@
+/*
+ * Very simple dataset to illustrate the functionality of the library.
+ */
+
 #include <vector>
 
 #include "../src/nnd.h"
 
-
-// Timer for returning passed time in milliseconds.
-Timer test_timer;
+using namespace nndescent;
 
 int main()
 {
-    // Reset the timer to 0.
-    test_timer.start();
+    // NEAREST NEIGHBORS - TRAINING
 
-    std::vector<float> row_major_order =
+    // Construct data from row major order vector.
+    std::vector<float> values =
     {
         1, 10,
         17, 5,
@@ -30,54 +32,94 @@ int main()
         52, 32,
         67, 33
     };
+    Matrix<float> data(16, values);
 
-    // Construct matrix from row major order vector.
-    Matrix<float> data(16, row_major_order);
+    // Print data
+    std::cout << "\nInput data\n" << data;
 
-    test_timer.stop("Reading csv");
-
+    // Define algorithm parameters
     Parms parms;
-    parms.n_neighbors=3;
-    parms.verbose=true;
-    parms.seed=1234;
-
-    test_timer.start();
+    parms.n_neighbors=4;
 
     // Run nearest neighbor descent algorithm.
     NNDescent nnd = NNDescent(data, parms);
 
-    // Return approximate NN-Matrix.
-    Matrix<int> nn_apx = nnd.neighbor_indices;
+    // Return approximate NN-Matrix and distances.
+    Matrix<int> nn_indices = nnd.neighbor_indices;
+    Matrix<float> nn_distances = nnd.neighbor_distances;
 
-    test_timer.stop("nnd");
-
-    // Use brute force algorithm.
+    // Use brute force algorithm for exact values.
     parms.algorithm="bf";
     NNDescent nnd_bf = NNDescent(data, parms);
 
     // Return exact NN-Matrix.
-    Matrix<int> nn_ect = nnd_bf.neighbor_indices;
+    Matrix<int> nn_indices_ect = nnd_bf.neighbor_indices;
+    Matrix<float> nn_distances_ect = nnd_bf.neighbor_distances;
 
-    test_timer.stop("brute force");
+    // Print NN-graphs
+    std::cout << "\nNearest neighbor graph indices\n" << nn_indices
+        << "\nNearest neighbor graph distances\n" << nn_distances
+        << "\nEcact nearest neighbor graph indices\n" << nn_indices_ect
+        << "\nEcact nearest neighbor graph distances\n" << nn_distances_ect;
 
-    // Calculate accuracy of NNDescent.
-    recall_accuracy(nn_apx, nn_ect);
 
+
+    // NEAREST NEIGHBORS - TESTING
+
+    // Construct query data from row major order vector.
+    std::vector<float> query_values =
+    {
+        5, 34,
+        65, 12,
+        44, 0,
+        18, 16,
+        52, 19,
+        35, 9,
+        1, 9,
+    };
+    Matrix<float> query_data(7, query_values);
+
+    // Print query data
+    std::cout << "\nInput query data\n" << query_data;
+
+    // Calculate 6-nearest neighbors for each query point
+    nnd.query(query_data, 6);
+
+    // Return approximate NN-Matrix and distances.
+    Matrix<int> nn_query_indices = nnd.query_indices;
+    Matrix<float> nn_query_distances = nnd.query_distances;
+
+    // Same using brute force algorithm.
+    nnd_bf.query(query_data, 6);
+    Matrix<int> nn_query_indices_ect = nnd_bf.query_indices;
+    Matrix<float> nn_query_distances_ect = nnd_bf.query_distances;
+
+    // Print NN-graphs for query points
+    std::cout << "\nApproximate query NN graph:\n" << nn_query_indices
+        << "\nApproximate query NN graph distances:\n" << nn_query_distances
+        << "\nEcact NN query graph:\n" << nn_query_indices_ect
+        << "\nEcact NN query graph distances:\n" << nn_query_distances_ect;
+
+
+    // DEBUG FEATURES
 
     // What follows is useful for debugging
-    // Print current NN graph:
+    // Calculate accuracy of NNDescent.
+    std::cout << "Accuracy of NN:\n";
+    recall_accuracy(nn_indices, nn_indices_ect);
+
+    std::cout << "Accuracy of NN query data:\n";
+    recall_accuracy(nn_query_indices, nn_query_indices_ect);
+
+    // Print current NN graph (internal representation of data):
     std::cout << "\nCurrent NN graph:\n" << nnd.current_graph
         << "\n Current NN graph indices:\n" << nnd.current_graph.indices
         << "\n Current NN graph keys/distances:\n"  << nnd.current_graph.keys
         << "\n Current NN graph flags:\n" << nnd.current_graph.flags;
 
-    // Print NN-graphs
-    std::cout << "\nApproximate NN graph:\n" << nn_apx;
-    std::cout << "\nEcact NN graph:\n" << nn_ect;
-
-    // Print data
-    std::cout << "\nInput data:\n" <<  data
-    << "\nData as 2d map (last digit of data point no. printed on map):\n";
+    // Print 2d data as map
+    std::cout <<
+        "\nData as 2d map (last digit of data point no. printed on map):\n";
     print_map(data);
 
     return 0;

@@ -1,4 +1,285 @@
 
+void update_by_rp_forest(
+    const Matrix<float> &data,
+    HeapList<float> &current_graph,
+    std::vector<RPTree> &forest,
+    const Metric &dist
+)
+{
+    for (const auto& tree : forest)
+    {
+        for (const RPTNode& node : tree.nodes)
+        {
+            for (const int& idx0 : node.indices)
+            {
+                for (const int& idx1 : node.indices)
+                {
+                    if (idx0 >= idx1)
+                    {
+                        continue;
+                    }
+                    float d = dist(
+                        data.begin(idx0), data.end(idx0), data.begin(idx1)
+                    );
+                    current_graph.checked_push(idx0, idx1, d, NEW);
+                    current_graph.checked_push(idx1, idx0, d, NEW);
+
+                }
+            }
+        }
+    }
+}
+
+
+template<class Iter0, class Iter1>
+struct minkowski_with_fixed_parms
+{
+    float _p;
+    minkowski_with_fixed_parms(float p) : _p(p) {}
+
+    float operator()(Iter0 first0, Iter0 last0, Iter1 first1) const
+    {
+        return minkowski<Iter0, Iter1>(first0, last0, first1, _p);
+    }
+};
+template<class Iter0, class Iter1>
+struct minkowski_with_fixed_parms
+{
+    float _p;
+    minkowski_with_fixed_parms(float p) : _p(p) {}
+
+    template<typename It>
+    static float minkowski_wrapper(It first0, It last0, It first1, float p)
+    {
+        return minkowski(first0, last0, first1, p);
+    }
+
+    float (*operator())(Iter0 first0, Iter0 last0, Iter1 first1) const
+    {
+        return &minkowski_wrapper<Iter0>; // return function pointer
+    }
+};
+
+
+global_timer.start();
+float max_score = FLOAT_MIN;
+for (auto &tree : forest)
+{
+    float score = tree.score(current_graph.indices);
+    std::cout << "tree score=" << score << "\n";
+    if (score > max_score)
+    {
+        max_score = score;
+        search_tree = tree;
+    }
+}
+global_timer.stop("score trees");
+
+class NNDWrapper
+{
+private:
+public:
+    Matrix<float> data;
+    NNDescent nnd;
+
+    NNDWrapper
+    (
+        py::array_t<float> &py_data,
+        std::string metric,
+        int n_neighbors,
+        int n_trees,
+        int leaf_size,
+        float pruning_degree_multiplier,
+        float diversify_prob,
+        bool tree_init,
+        int seed,
+        bool low_memory,
+        int max_candidates,
+        int n_iters,
+        float delta,
+        int n_threads,
+        bool compressed,
+        bool parallel_batch_queries,
+        bool verbose,
+        std::string algorithm
+    )
+        : data(
+            py_data.shape()[0],
+            py_data.shape()[1],
+            static_cast<float*>(py_data.request().ptr))
+        , nnd(data, n_neighbors)
+    {
+        if (py_data.ndim() != 2)
+        {
+            throw std::runtime_error("Input should be 2-D NumPy array");
+        }
+
+        Parms parms;
+        parms.metric = metric;
+        parms.n_neighbors = n_neighbors;
+        parms.n_trees = n_trees;
+        parms.leaf_size = leaf_size;
+        parms.pruning_degree_multiplier = pruning_degree_multiplier;
+        parms.diversify_prob = diversify_prob;
+        parms.tree_init = tree_init;
+        parms.seed = seed;
+        parms.low_memory = low_memory;
+        parms.max_candidates = max_candidates;
+        parms.n_iters = n_iters;
+        parms.delta = delta;
+        parms.n_threads = n_threads;
+        parms.compressed = compressed;
+        parms.parallel_batch_queries = parallel_batch_queries;
+        parms.verbose = verbose;
+        parms.algorithm = algorithm;
+
+        nnd.set_parameters(parms);
+        nnd.start();
+    }
+std::vector<std::vector<int>> reverse_graph_ind(forward_graph.nheaps());
+std::vector<std::vector<float>> reverse_graph_dist(forward_graph.nheaps());
+global_timer.stop("reversed init");
+
+// Traspose search graph
+for (size_t i = 0; i < forward_graph.nheaps(); ++i)
+{
+    for (size_t j = 0; j < forward_graph.nnodes(); ++j)
+    {
+        int idx = forward_graph.indices(i, j);
+        if (idx != NONE)
+        {
+            float d = forward_graph.keys(i, j);
+            reverse_graph_ind[idx].push_back(i);
+            reverse_graph_dist[idx].push_back(d);
+        }
+    }
+}
+
+global_timer.stop("reverse transposing");
+
+size_t edges_cnt_before;
+if (verbose)
+{
+    edges_cnt_before = nnz(reverse_graph_ind);
+}
+global_timer.stop("reverse pruning");
+
+if (verbose)
+{
+    size_t edges_cnt_after = nnz(reverse_graph_ind);
+    log(
+        "Reverse pruning reduced edges from "
+            + std::to_string(edges_cnt_before)
+            + " to "
+            + std::to_string(edges_cnt_after)
+    );
+}
+
+
+for (size_t j = 0; j < forward_graph.nnodes(); ++j)
+{
+    int idx = forward_graph.indices(i, j);
+    if (idx != NONE)
+    {
+        float d = forward_graph.keys(i, j);
+        search_graph.checked_push(idx, i, d);
+    }
+}
+for (size_t j = 0; j < reverse_graph_ind[i].size(); ++j)
+{
+    int idx = reverse_graph_ind[i][j];
+    if (idx != NONE)
+    {
+        float d = reverse_graph_dist[i][j];
+        search_graph.checked_push(i, idx, d);
+    }
+}
+//TODO BUG must be sorted before pruning
+void prune_long_edges
+(
+    const Matrix<float> &data,
+    std::vector<std::vector<int>> &indices,
+    std::vector<std::vector<float>> &distances,
+    RandomState &rng_state,
+    Metric &dist,
+    int n_threads,
+    bool verbose,
+    float prune_probability=1.0f
+)
+{
+    #pragma omp parallel for num_threads(n_threads)
+    for (size_t i = 0; i < indices.size(); ++i)
+    {
+        std::vector<int> new_indices;
+        std::vector<float> new_keys;
+        // std::vector<int> new_indices = { graph.indices(i, 0) };
+        // std::vector<float> new_keys = { graph.keys(i, 0) };
+        for (size_t j = 0; j < indices[i].size(); ++j)
+        {
+            int idx = indices[i][j];
+            float key = distances[i][j];
+            if  (idx == NONE)
+            {
+                continue;
+            }
+
+            bool add_node = true;
+
+            for (size_t k = 0; k < new_indices.size(); ++k)
+            {
+                int new_idx = new_indices[k];
+                float new_key = new_keys[k];
+                float d = dist(
+                    data.begin(idx), data.end(idx), data.begin(new_idx)
+                );
+                if (new_key > FLOAT_EPS && d < key)
+                {
+                    // idx is closer to a node in the neighborhood than
+                    // to the central node i, i.e. it is a long edge.
+                    if (rand_float(rng_state) < prune_probability)
+                    {
+                        add_node = false;
+                        break;
+                    }
+
+
+                }
+            }
+            if (add_node)
+            {
+                new_indices.push_back(idx);
+                new_keys.push_back(key);
+            }
+        }
+        for (size_t j = 0; j < indices[i].size(); ++j)
+        {
+            if  (j < new_indices.size())
+            {
+                indices[i][j] = new_indices[j];
+                distances[i][j] = new_keys[j];
+            }
+            else
+            {
+                indices[i][j]  = NONE;
+                distances[i][j] = FLOAT_MAX;
+            }
+        }
+    }
+}
+
+prune_long_edges
+(
+    data,
+    reverse_graph_ind,
+    reverse_graph_dist,
+    rng_state,
+    dist,
+    n_threads,
+    verbose,
+    1.0f
+);
+
+
 float _dist
 (
     const Matrix<float> &data,

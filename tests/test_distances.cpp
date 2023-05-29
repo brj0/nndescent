@@ -1,9 +1,16 @@
+/*
+ * Tests all implemented functions of nndescent. The values are the same
+ * as in the corresponding py file.
+ */
+
+
 #include <iostream>
 #include <vector>
 
 #include "../src/distances.h"
 #include "../src/dtypes.h"
 
+using namespace nndescent;
 
 int main()
 {

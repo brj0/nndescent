@@ -13,26 +13,20 @@ set(CMAKE_CXX_FLAGS
 file(GLOB_RECURSE SRC_FILES src/*.cpp)
 
 # Library
-add_library(nndlib STATIC ${SRC_FILES})
+add_library(nndescent STATIC ${SRC_FILES})
 
 # Source code
-target_include_directories(nndlib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(nndescent PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Tests
-add_executable(test0 tests/test0.cpp)
-target_link_libraries(test0 PRIVATE nndlib)
-
 add_executable(test_distances tests/test_distances.cpp)
-target_link_libraries(test_distances PRIVATE nndlib)
+target_link_libraries(test_distances PRIVATE nndescent)
 
 add_executable(simple tests/simple.cpp)
-target_link_libraries(simple PRIVATE nndlib)
+target_link_libraries(simple PRIVATE nndescent)
 
-add_executable(coil20 tests/coil20.cpp)
-target_link_libraries(coil20 PRIVATE nndlib)
-
-add_executable(mnist tests/mnist.cpp)
-target_link_libraries(mnist PRIVATE nndlib)
+add_executable(faces tests/faces.cpp)
+target_link_libraries(faces PRIVATE nndescent)
 
 add_executable(fmnist tests/fmnist.cpp)
-target_link_libraries(fmnist PRIVATE nndlib)
+target_link_libraries(fmnist PRIVATE nndescent)

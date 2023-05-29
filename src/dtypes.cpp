@@ -1,10 +1,33 @@
+/**
+ * @file dtypes.cpp
+ *
+ * @brief Data types used (Matrix, Heap, HeapList).
+ */
+
 #include <iostream>
 #include <string>
 
 #include "dtypes.h"
 
 
-// Print the data as 2d map.
+namespace nndescent
+{
+
+
+int non_none_cnt(std::vector<std::vector<int>> matrix)
+{
+    int cnt = 0;
+    for (size_t i = 0; i < matrix.size(); ++i)
+    {
+        for (size_t j = 0; j < matrix[i].size(); ++j)
+        {
+            cnt += (matrix[i][j] == NONE) ? 0 : 1;
+        }
+    }
+    return cnt;
+}
+
+
 void print_map(Matrix<float> matrix)
 {
     // Calculate maximum coordinates.
@@ -49,6 +72,7 @@ void print_map(Matrix<float> matrix)
     }
 }
 
+
 std::ostream& operator<<(std::ostream &out, NNUpdate &update)
 {
     out << "(idx0=" << update.idx0
@@ -57,6 +81,7 @@ std::ostream& operator<<(std::ostream &out, NNUpdate &update)
         << ")";
     return out;
 }
+
 
 std::ostream& operator<<(std::ostream &out, std::vector<NNUpdate> &updates)
 {
@@ -77,3 +102,5 @@ std::ostream& operator<<(std::ostream &out, std::vector<NNUpdate> &updates)
     return out;
 }
 
+
+} // namespace nndescent

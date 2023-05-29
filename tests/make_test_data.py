@@ -8,7 +8,8 @@ import os
 
 import h5py
 import numpy as np
-import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.datasets import fetch_olivetti_faces
 
 DATA_PATH = os.path.expanduser("~/Downloads/nndescent_test_data")
 os.makedirs(DATA_PATH, exist_ok=True)
@@ -36,27 +37,26 @@ simple = np.array(
 )
 
 # Small data set, useful to quickly check correctness of the algorithm.
-coil20 = np.array(
-    pd.read_csv(
-        "https://raw.githubusercontent.com/akmand/datasets/main/coil20.csv"
-    )
+olivetti_faces = fetch_olivetti_faces(data_home=DATA_PATH).data
+faces_train, faces_test = train_test_split(
+    olivetti_faces, test_size=0.2, random_state=1234
 )
 
 # ANN Benchmark datasets. Comment out accordingly.
 # https://github.com/erikbern/ann-benchmarks
 ANNBEN = {
-    "deep": "deep-image-96-angular",
+    # "deep": "deep-image-96-angular",
     "fmnist": "fashion-mnist-784-euclidean",
-    "gist": "gist-960-euclidean",
-    "glove25": "glove-25-angular",
-    "glove50": "glove-50-angular",
-    "glove100": "glove-100-angular",
-    "glove200": "glove-200-angular",
+    # "gist": "gist-960-euclidean",
+    # "glove25": "glove-25-angular",
+    # "glove50": "glove-50-angular",
+    # "glove100": "glove-100-angular",
+    # "glove200": "glove-200-angular",
     # "kosark": "kosarak-jaccard", # url not working
     "mnist": "mnist-784-euclidean",
     # "movielens": "movielens10m-jaccard", # url not working
-    "nytimes": "nytimes-256-angular",
-    "sift": "sift-128-euclidean",
+    # "nytimes": "nytimes-256-angular",
+    # "sift": "sift-128-euclidean",
     # "lastfm": "lastfm-64-dot", # url not working
 }
 
@@ -70,31 +70,37 @@ def ann_benchmark_data(dataset_name):
             f"http://ann-benchmarks.com/{dataset_name}.hdf5",
             data_path,
         )
-    else:
-        print(f"Reading {dataset_name} from disk ...")
     hdf5_file = h5py.File(data_path, "r")
+    nn_ect = np.array(hdf5_file["neighbors"])
+    nn_ect = np.c_[range(nn_ect.shape[0]), nn_ect]
     return (
         np.array(hdf5_file["train"]),
         np.array(hdf5_file["test"]),
+        hdf5_file.attrs["distance"],
+        nn_ect,
     )
+
 
 annb = {}
 for nm, nm_long in ANNBEN.items():
-    train, test = ann_benchmark_data(nm_long)
+    train, test, _, ect = ann_benchmark_data(nm_long)
     annb[nm + "_train"] = train
+    annb[nm + "_test"] = test
+    annb[nm + "_test_ect"] = ect
 
 
 # Save datasets as csv to Downloads folder.
 datasets = {
     "simple": simple,
-    "coil20": coil20,
-    **annb
+    "faces_train": faces_train,
+    "faces_test": faces_test,
+    **annb,
 }
 
 for name, data in datasets.items():
     print("Saving", name, "as csv")
     path = os.path.join(DATA_PATH, f"{name}.csv")
     np.savetxt(path, data, delimiter=",", fmt="%g")
-    del(data)
+    del data
 
 print("Test data created successfully")

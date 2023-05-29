@@ -1,7 +1,7 @@
 #include <chrono>
 #include "utils.h"
 
-Timer global_timer;
+namespace nndescent {
 
 // Random number generator for seeding, code from
 // https://prng.di.unimi.it/splitmix64.c
@@ -67,3 +67,5 @@ void log(std::string text, bool verbose)
     std::cout << std::put_time(localtime(&time), "%F %T ") << text << "\n";
 }
 
+
+} // namespace nndescent

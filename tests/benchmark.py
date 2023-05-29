@@ -1,22 +1,21 @@
 """
-Comparison with pynndescent. Please first fun make_test_data.py.
+Comparison with pynndescent.
 """
 
-
-import nndescent
-import pynndescent
 from urllib.request import urlretrieve
-from sklearn.neighbors import KDTree
-
-import time
-import numpy as np
-import random
-
 import os
-import h5py
+import time
 
-import seaborn as sns
+from sklearn.datasets import fetch_olivetti_faces
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KDTree
+import h5py
 import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+
+import pynndescent
+import nndescent
 
 DATA_PATH = os.path.expanduser("~/Downloads/nndescent_test_data")
 os.makedirs(DATA_PATH, exist_ok=True)
@@ -31,9 +30,11 @@ class Timer:
         self.time0 = time.time()
 
     def start(self):
+        """Resets timer."""
         self.time0 = time.time()
 
     def stop(self, text=None):
+        """Resets timer and return elapsed time."""
         delta_time = 1000 * (time.time() - self.time0)
         comment = "" if text is None else "(" + text + ")"
         print("Time passed:", delta_time, "ms", comment)
@@ -42,6 +43,7 @@ class Timer:
 
 
 timer = Timer()
+
 
 def ann_benchmark_data(dataset_name):
     """Downloads data if necessary and returns as arrays."""
@@ -64,6 +66,7 @@ def ann_benchmark_data(dataset_name):
 
 
 def accuracy(approx_neighbors, true_neighbors):
+    """Returns accuracy of algorithm when compared with exact values."""
     result = np.zeros(approx_neighbors.shape[0])
     for i in range(approx_neighbors.shape[0]):
         n_correct = np.intersect1d(
@@ -74,84 +77,116 @@ def accuracy(approx_neighbors, true_neighbors):
     return result
 
 
-def benchmark_pynndescent(**kwargs):
+def benchmark_pynndescent(**parms):
+    """Runs pynndescent on data and query data. Returns NN-indices
+    and elapsed time.
+    """
+    query_data = parms["query_data"]
+    k = parms["k"]
+    dim = parms["data"].shape
+    del parms["query_data"]
+    del parms["k"]
     timer.start()
-    index = pynndescent.NNDescent(**kwargs)
-    indices = index.neighbor_graph[0]
-    dim = kwargs["data"].shape
-    time = timer.stop(f"pynndescent dim={dim}")
-    return indices, time
+    index = pynndescent.NNDescent(**parms, random_state=1234)
+    indices_train = index.neighbor_graph[0]
+    time_train = timer.stop(f"pynndescent train, dim={dim}")
+    indices_test = index.query(query_data, k)[0]
+    time_test = timer.stop(f"pynndescent test, dim={dim}")
+    return indices_train, indices_test, time_train, time_test
 
 
-def benchmark_nndescent(**kwargs):
+def benchmark_nndescent(**parms):
+    """Runs nndescent on data and query data. Returns NN-indices
+    and elapsed time.
+    """
+    query_data = parms["query_data"]
+    k = parms["k"]
+    dim = parms["data"].shape
+    del parms["query_data"]
+    del parms["k"]
     timer.start()
-    index = nndescent.NNDescent(**kwargs)
-    indices = index.neighbor_graph[0]
-    dim = kwargs["data"].shape
-    time = timer.stop(f"nndescent dim={dim}")
-    return indices, time
+    index = nndescent.NNDescent(**parms, seed=1234)
+    indices_train = index.neighbor_graph[0]
+    time_train = timer.stop(f"nndescent train, dim={dim}")
+    indices_test = index.query(query_data, k)[0]
+    time_test = timer.stop(f"nndescent test, dim={dim}")
+    return indices_train, indices_test, time_train, time_test
 
 
-def benchmark_bf(**kwargs):
+def benchmark_bf(**parms):
+    """Runs nndescent using brute force on data and query data.
+    Returns NN-indices and elapsed time.
+    """
+    query_data = parms["query_data"]
+    k = parms["k"]
+    dim = parms["data"].shape
+    del parms["query_data"]
+    del parms["k"]
     timer.start()
-    index = nndescent.NNDescent(**kwargs, algorithm="bf")
-    indices = index.neighbor_graph[0]
-    dim = kwargs["data"].shape
-    time = timer.stop(f"nndescent brute force dim={dim}")
-    return indices, time
+    index = nndescent.NNDescent(**parms, algorithm="bf")
+    indices_train = index.neighbor_graph[0]
+    time_train = timer.stop(f"brute force train, dim={dim}")
+    indices_test = index.query(query_data, k)[0]
+    time_test = timer.stop(f"brute force test, dim={dim}")
+    return indices_train, indices_test, time_train, time_test
 
 
-def benchmark_kdtree(**kwargs):
+def benchmark_kdtree(**parms):
+    """Runs kdtree on data and query data. Returns NN-indices (only for test)
+    and elapsed time.
+    """
+    dim = parms["data"].shape
     timer.start()
-    tree_index = KDTree(kwargs["data"])
-    indices = tree_index.query(
-        kwargs["data"], k=kwargs["n_neighbors"]
-    )[1]
-    dim = kwargs["data"].shape
-    time = timer.stop(f"KDTree dim={dim}")
-    return indices, time
-
+    index = KDTree(parms["data"])
+    time_train = timer.stop(f"KDTree train, dim={dim}")
+    indices_test = index.query(parms["query_data"], k=parms["k"])[1]
+    time_test = timer.stop(f"KDTree test, dim={dim}")
+    return None, indices_test, time_train, time_test
 
 
 # Detailed example
 ############################################################
 
-print(f"Benchmarking coil20 ...")
-print(f"------------------------\n")
+print("Benchmarking olivetty faces ...")
+print("-------------------------------\n")
 
-# Small dataset useful for debugging
-coil20 = np.loadtxt(
-    os.path.join(DATA_PATH, "coil20.csv"), delimiter=",", dtype=np.float32
+# Small data set, useful to quickly check correctness of the algorithm.
+olivetti_faces = fetch_olivetti_faces(data_home=DATA_PATH).data
+train, test = train_test_split(
+    olivetti_faces, test_size=0.2, random_state=1234
 )
-
-# train, test, dist, nn_train = ann_benchmark_data("mnist-784-euclidean")
-# train = np.array(
-#     [[random.randint(0, 100) for dim in range(3000)] for size in range(3000)]
-# )
 
 # Parameters in used algorithm
 kwargs = {
-    "data": coil20,
-    # "data": train,
+    "data": train,
     "n_neighbors": 30,
     "verbose": True,
     "metric": "euclidean",
-    # "metric": "dot",
+    "query_data": test,
+    "k": 10,
 }
 
 # Ignore first pynndescent run (slow due to numba compilation)
-_ , _ = benchmark_pynndescent(**kwargs)
-nn_pynnd, t_pynnd_coil20 = benchmark_pynndescent(**kwargs)
-nn_nnd, t_nnd_coil20 = benchmark_nndescent(**kwargs)
-nn_bf, _ = benchmark_bf(**kwargs)
+_ = benchmark_pynndescent(**kwargs)
+nn_train_py, nn_test_py, t_train_py, t_test_py = benchmark_pynndescent(
+    **kwargs
+)
+
+nn_train_c, nn_test_c, t_train_c, t_test_c = benchmark_nndescent(**kwargs)
+nn_train_bf, nn_test_bf, t_train_bf, t_test_bf = benchmark_bf(**kwargs)
+
 
 # pynndescent accuracy
-print("\ncoil20: Accuracy pynndescent vs bf")
-accuracy_stats = accuracy(nn_pynnd, nn_bf)
+print("\nfaces_train: Accuracy pynndescent vs exact values")
+accuracy(nn_train_py, nn_train_bf)
+print("\nfaces_test: Accuracy pynndescent vs exact values")
+accuracy(nn_test_py, nn_test_bf)
 
 # Accuracy with plots
-print("\ncoil20: Accuracy nndescent vs bf")
-accuracy_stats = accuracy(nn_nnd, nn_bf)
+print("\nfaces_train: Accuracy nndescent vs exact values")
+accuracy(nn_train_c, nn_train_bf)
+print("\nfaces_test: Accuracy nndescent vs exact values")
+accuracy_stats = accuracy(nn_test_c, nn_test_bf)
 
 sns.histplot(accuracy_stats, kde=False)
 plt.title("Distribution of accuracy per query point")
@@ -159,24 +194,36 @@ plt.xlabel("Accuracy")
 plt.show()
 
 # Brute force vs kdtrees (must be almost 1.0)
-nn_kdtree, _ = benchmark_kdtree(**kwargs)
-print("\ncoil20: Accuracy bf vs kdtree")
-accuracy_stats = accuracy(nn_bf, nn_kdtree)
+_, nn_test_kdt, t_train_kdt, t_test_kdt = benchmark_kdtree(**kwargs)
+print("\nfaces: Accuracy bf vs kdtree")
+accuracy(nn_test_bf, nn_test_kdt)
 
 # Accuracy relative to pynndescent
-print("\ncoil20: Accuracy nndescent vs pynndescent")
-accuracy_stats = accuracy(nn_nnd, nn_pynnd)
+print("\nfaces_train: Accuracy nndescent vs pynndescent")
+acc_train = accuracy(nn_train_c, nn_train_py)
+
+# Accuracy
+print("\nfaces_test: Accuracy pynndescent vs exact values")
+acc_test_py = accuracy(nn_test_py, nn_test_kdt)
+print("\nfaces_test: Accuracy nndescent vs exact values")
+acc_test_c = accuracy(nn_test_c, nn_test_kdt)
 
 # Ad results to summary
 summary = [
     [
-        "coil20",
-        t_pynnd_coil20,
-        t_nnd_coil20,
-        t_nnd_coil20/t_pynnd_coil20,
-        np.mean(accuracy_stats)
+        "faces",
+        t_train_py,
+        t_train_c,
+        t_train_c / t_train_py,
+        np.mean(acc_train),
+        t_test_py,
+        t_test_c,
+        t_test_c / t_test_py,
+        np.mean(acc_test_py),
+        np.mean(acc_test_c),
     ],
 ]
+
 
 # ANN Benchmark tests
 ############################################################
@@ -194,7 +241,7 @@ ANNBEN = {
     # "glove100": "glove-100-angular",
     # "glove200": "glove-200-angular",
     # "kosark": "kosarak-jaccard", # url not working
-    # "mnist": "mnist-784-euclidean",
+    "mnist": "mnist-784-euclidean",
     # "movielens": "movielens10m-jaccard", # url not working
     # "nytimes": "nytimes-256-angular",
     # "sift": "sift-128-euclidean",
@@ -208,31 +255,61 @@ distance_translation = {
 }
 
 for name, url_name in ANNBEN.items():
-    print(f"Benchmarking {name} ...")
-    print(f"------------------------\n")
-    train, test, dist, nn_train = ann_benchmark_data(url_name)
+    print(f"\nBenchmarking {name} ...")
+    print("-------------------------------\n")
+    train, test, dist, nn_test_ect = ann_benchmark_data(url_name)
     kwargs = {
         "data": train,
         "n_neighbors": 30,
         "verbose": True,
         "metric": distance_translation[dist],
+        "query_data": test,
+        "k": 10,
     }
     # Ignore first pynndescent run (slow due to numba compilation)
-    _, _ = benchmark_pynndescent(**kwargs)
-    nn_pynnd, t_pynnd = benchmark_pynndescent(**kwargs)
-    nn_nnd, t_nnd = benchmark_nndescent(**kwargs)
+    _ = benchmark_pynndescent(**kwargs)
+    nn_train_py, nn_test_py, t_train_py, t_test_py = benchmark_pynndescent(
+        **kwargs
+    )
+    nn_train_c, nn_test_c, t_train_c, t_test_c = benchmark_nndescent(**kwargs)
+
     # Accuracy relative to pynndescent
-    print(f"\n{name}: Accuracy nndescent vs pynndescent")
-    accuracy_stats = accuracy(nn_nnd, nn_pynnd)
+    print(f"\n{name}_train: Accuracy nndescent vs pynndescent")
+    acc_train = accuracy(nn_train_c, nn_train_py)
+    # Accuracy relative to exact value
+    nn_test_ect = nn_test_ect[:, 1 : (kwargs["k"] + 1)]
+    print(f"\n{name}_test: Accuracy pynndescent vs exact values")
+    acc_test_py = accuracy(nn_test_py, nn_test_ect)
+    print(f"\n{name}_test: Accuracy nndescent vs exact values")
+    acc_test_c = accuracy(nn_test_c, nn_test_ect)
     summary.append(
-        [name, t_pynnd, t_nnd, t_nnd / t_pynnd, np.mean(accuracy_stats)]
+        [
+            name,
+            t_train_py,
+            t_train_c,
+            t_train_c / t_train_py,
+            np.mean(acc_train),
+            t_test_py,
+            t_test_c,
+            t_test_c / t_test_py,
+            np.mean(acc_test_py),
+            np.mean(acc_test_c),
+        ],
     )
 
 # Summary
-print(f"# Benchmark test pynndescent vs nndescent")
-print(f"Data set  | pynndescent [ms] | nndescent [ms] | ratio | accuracy")
-print(f"----------|------------------|----------------|-------|---------")
-for nm, t_py, t_cpp, rat, acc in summary:
+print("# Benchmark test pynndescent vs nndescent")
+print(
+    "Data set  | py train [ms] | c train [ms] | ratio | py vs c match"
+    " | py test [ms] | c test [ms] | ratio | py accuracy | c accuracy"
+)
+print(
+    "----------|---------------|--------------|-------|--------------"
+    "-|--------------|-------------|-------|-------------|-----------"
+)
+for nm, tr_py, tr_c, tr_r, tr_a, te_py, te_c, te_r, te_a_py, te_a_c in summary:
     print(
-        f"{nm:<9} | {t_py: 16.1f} | {t_cpp: 14.1f} | {rat:5.3f} | {acc: 5.3f}"
+        f"{nm:<9} | {tr_py: 13.1f} | {tr_c: 12.1f} | {tr_r:5.3f} |"
+        f" {tr_a: 13.3f} | {te_py: 12.1f} | {te_c: 11.1f} | {te_r:5.3f} |"
+        f" {te_a_py: 11.3f} | {te_a_c: 10.3f}"
     )

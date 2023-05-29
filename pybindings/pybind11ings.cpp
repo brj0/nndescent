@@ -6,8 +6,30 @@
 #include "../src/nnd.h"
 
 namespace py = pybind11;
+using namespace nndescent;
 
 const Parms DEFAULT_PARMS;
+
+
+template<class T>
+py::array_t<T> to_pyarray(const Matrix<T> &matrix)
+{
+    size_t dim = 2;
+    size_t nrows = matrix.nrows();
+    size_t ncols = matrix.ncols();
+    std::vector<size_t> strides = {sizeof(T)*ncols, sizeof(T)};
+    std::vector<size_t> shape = {nrows , ncols};
+
+    return py::array_t<T>(py::buffer_info(
+        (T*) matrix.m_ptr,                   // data as contiguous array
+        sizeof(T),                           // size of one scalar
+        py::format_descriptor<T>::format(),  // data type
+        dim,                                 // number of dimensions
+        shape,                               // shape of the matrix
+        strides                              // strides for each axis
+    ));
+}
+
 
 class NNDWrapper
 {
@@ -18,7 +40,7 @@ public:
 
     NNDWrapper
     (
-        py::array_t<float> &py_data,
+        py::object &py_obj,
         std::string metric,
         int n_neighbors,
         int n_trees,
@@ -37,16 +59,22 @@ public:
         bool verbose,
         std::string algorithm
     )
-        : data(
-            py_data.shape()[0],
-            py_data.shape()[1],
-            static_cast<float*>(py_data.request().ptr))
-        , nnd(data, n_neighbors)
     {
+        py::array_t<float> py_data(py_obj);
+        if (!py::isinstance<py::array_t<float>>(py_obj))
+        {
+            throw std::runtime_error("Input should be 2-D float32 NumPy array");
+        }
         if (py_data.ndim() != 2)
         {
-            throw std::runtime_error("Input should be 2-D NumPy array");
+            throw std::runtime_error("Input should be 2-D float32 NumPy array");
         }
+        data = Matrix<float>(
+            py_data.shape()[0],
+            py_data.shape()[1],
+            static_cast<float*>(py_data.request().ptr)
+        );
+        nnd = NNDescent(data, n_neighbors);
 
         Parms parms;
         parms.metric = metric;
@@ -92,82 +120,42 @@ public:
     std::string get_algorithm() const { return nnd.algorithm; }
     py::array_t<float> get_data() const
     {
-        size_t dim = 2;
-        size_t nrows = data.nrows();
-        size_t ncols = data.ncols();
-        std::vector<size_t> strides = {sizeof(float)*ncols, sizeof(float)};
-        std::vector<size_t> shape = {nrows , ncols};
-
-        return py::array_t<float>(py::buffer_info(
-            (float*) data.m_ptr,                     // data as contiguous array
-            sizeof(float),                           // size of one scalar
-            py::format_descriptor<float>::format(),  // data type
-            dim,                                     // number of dimensions
-            shape,                                   // shape of the matrix
-            strides                                  // strides for each axis
-        ));
+        return to_pyarray(data);
     }
-
     py::tuple get_neighbor_graph() const
     {
         return py::make_tuple(get_indices(), get_distances());
     }
-
     py::array_t<int> get_indices() const
     {
-        size_t dim = 2;
-        size_t nrows = nnd.current_graph.indices.nrows();
-        size_t ncols = nnd.current_graph.indices.ncols();
-        std::vector<size_t> strides = {sizeof(int)*ncols, sizeof(int)};
-        std::vector<size_t> shape = {nrows , ncols};
-
-        return py::array_t<int>(py::buffer_info(
-            (int*) nnd.current_graph.indices.m_ptr,  // data as contiguous array
-            sizeof(int),                             // size of one scalar
-            py::format_descriptor<int>::format(),    // data type
-            dim,                                     // number of dimensions
-            shape,                                   // shape of the matrix
-            strides                                  // strides for each axis
-        ));
+        return to_pyarray(nnd.current_graph.indices);
     }
-
     py::array_t<float> get_distances() const
     {
-        size_t dim = 2;
-        size_t nrows = nnd.neighbor_distances.nrows();
-        size_t ncols = nnd.neighbor_distances.ncols();
-        std::vector<size_t> strides = {sizeof(float)*ncols, sizeof(float)};
-        std::vector<size_t> shape = {nrows , ncols};
-
-        return py::array_t<float>(py::buffer_info(
-            (float*) nnd.neighbor_distances.m_ptr,   // data as contiguous array
-            sizeof(float),                           // size of one scalar
-            py::format_descriptor<float>::format(),  // data type
-            dim,                                     // number of dimensions
-            shape,                                   // shape of the matrix
-            strides                                  // strides for each axis
-        ));
+        return to_pyarray(nnd.neighbor_distances);
     }
-
     py::array_t<char> get_flags() const
     {
-        size_t dim = 2;
-        size_t nrows = nnd.current_graph.flags.nrows();
-        size_t ncols = nnd.current_graph.flags.ncols();
-        std::vector<size_t> strides = {sizeof(char)*ncols, sizeof(char)};
-        std::vector<size_t> shape = {nrows , ncols};
-
-        return py::array_t<char>(py::buffer_info(
-            (char*) nnd.current_graph.flags.m_ptr,   // data as contiguous array
-            sizeof(char),                            // size of one scalar
-            py::format_descriptor<char>::format(),   // data type
-            dim,                                     // number of dimensions
-            shape,                                   // shape of the matrix
-            strides                                  // strides for each axis
-        ));
+        return to_pyarray(nnd.current_graph.flags);
     }
 
-
+    py::tuple query
+    (
+        py::array_t<float> &py_query_data, int k, float epsilon
+    )
+    {
+        Matrix<float> query_data(
+            py_query_data.shape()[0],
+            py_query_data.shape()[1],
+            static_cast<float*>(py_query_data.request().ptr)
+        );
+        nnd.query(query_data, k, epsilon);
+        Matrix<int> query_indices = nnd.query_indices;
+        Matrix<float> query_distances = nnd.query_distances;
+        return py::make_tuple(
+            to_pyarray(query_indices), to_pyarray(query_distances)
+        );
+    }
     void set_metric(const std::string& m) { nnd.metric = m; }
     void set_n_neighbors(int n) { nnd.n_neighbors = n; }
     void set_n_trees(int n) { nnd.n_trees = n; }
@@ -195,7 +183,7 @@ PYBIND11_MODULE(nndescent, m)
     m.doc() = "Calculates approximate k-nearest neighbors";
     m.attr("__version__") = PROJECT_VERSION;
     py::class_<NNDWrapper>(m, "NNDescent")
-        .def(py::init<py::array_t<float>&, const std::string&, int, int, int,
+        .def(py::init<py::object&, const std::string&, int, int, int,
             float, float, bool, int, bool, int, int, float, int, bool, bool,
             bool, const std::string&>(),
             py::arg("data"),
@@ -219,47 +207,68 @@ PYBIND11_MODULE(nndescent, m)
             py::arg("verbose")=DEFAULT_PARMS.verbose,
             py::arg("algorithm")=DEFAULT_PARMS.algorithm
         )
+        .def("query", &NNDWrapper::query,
+            py::arg("query_data"),
+            py::arg("k")=DEFAULT_K,
+            py::arg("epsilon")=DEFAULT_EPSILON
+        )
         .def_property("metric", &NNDWrapper::get_metric,
-            &NNDWrapper::set_metric)
+            &NNDWrapper::set_metric
+        )
         .def_property("n_neighbors", &NNDWrapper::get_n_neighbors,
-            &NNDWrapper::set_n_neighbors)
+            &NNDWrapper::set_n_neighbors
+        )
         .def_property("n_trees", &NNDWrapper::get_n_trees,
-            &NNDWrapper::set_n_trees)
+            &NNDWrapper::set_n_trees
+        )
         .def_property("leaf_size", &NNDWrapper::get_leaf_size,
-            &NNDWrapper::set_leaf_size)
+            &NNDWrapper::set_leaf_size
+        )
         .def_property("pruning_degree_multiplier",
             &NNDWrapper::get_pruning_degree_multiplier,
-            &NNDWrapper::set_pruning_degree_multiplier)
+            &NNDWrapper::set_pruning_degree_multiplier
+        )
         .def_property("diversify_prob", &NNDWrapper::get_diversify_prob,
-            &NNDWrapper::set_diversify_prob)
+            &NNDWrapper::set_diversify_prob
+        )
         .def_property("tree_init", &NNDWrapper::get_tree_init,
-            &NNDWrapper::set_tree_init)
+            &NNDWrapper::set_tree_init
+        )
         .def_property("seed", &NNDWrapper::get_seed, &NNDWrapper::set_seed)
         .def_property("low_memory", &NNDWrapper::get_low_memory,
-            &NNDWrapper::set_low_memory)
+            &NNDWrapper::set_low_memory
+        )
         .def_property("max_candidates", &NNDWrapper::get_max_candidates,
-            &NNDWrapper::set_max_candidates)
+            &NNDWrapper::set_max_candidates
+        )
         .def_property("n_iters", &NNDWrapper::get_n_iters,
-            &NNDWrapper::set_n_iters)
+            &NNDWrapper::set_n_iters
+        )
         .def_property("delta", &NNDWrapper::get_delta,
-            &NNDWrapper::set_delta)
+            &NNDWrapper::set_delta
+        )
         .def_property("n_threads", &NNDWrapper::get_n_threads,
-            &NNDWrapper::set_n_threads)
+            &NNDWrapper::set_n_threads
+        )
         .def_property("compressed", &NNDWrapper::get_compressed,
-            &NNDWrapper::set_compressed)
+            &NNDWrapper::set_compressed
+        )
         .def_property("parallel_batch_queries",
             &NNDWrapper::get_parallel_batch_queries,
-            &NNDWrapper::set_parallel_batch_queries)
+            &NNDWrapper::set_parallel_batch_queries
+        )
         .def_property("verbose", &NNDWrapper::get_verbose,
-            &NNDWrapper::set_verbose)
+            &NNDWrapper::set_verbose
+        )
         .def_property("algorithm", &NNDWrapper::get_algorithm,
-            &NNDWrapper::set_algorithm)
+            &NNDWrapper::set_algorithm
+        )
         .def_property_readonly("data", &NNDWrapper::get_data)
         .def_property_readonly("indices", &NNDWrapper::get_indices)
         .def_property_readonly("distances", &NNDWrapper::get_distances)
         .def_property_readonly("neighbor_graph",
-            &NNDWrapper::get_neighbor_graph)
+            &NNDWrapper::get_neighbor_graph
+        )
         .def_property_readonly("flags", &NNDWrapper::get_flags)
-        ;
     ;
 }

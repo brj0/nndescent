@@ -1,11 +1,9 @@
-/*
- * Dong, Wei, Charikar Moses, and Kai Li. "Efficient k-nearest neighbor graph
- * construction for generic similarity measures." Proceedings of the 20th
- * international conference on World wide web. 2011.
+/**
+ * @file nnd.cpp
  *
- * https://dl.acm.org/doi/pdf/10.1145/1963405.1963487
- * https://www.cs.princeton.edu/cass/papers/www11.pdf
+ * @brief Implementaton of nearest neighbor descent.
  */
+
 
 #include <assert.h>
 #include <iomanip>
@@ -19,7 +17,19 @@
 #include "utils.h"
 #include "rp_trees.h"
 
-// Initializes heaps by choosing nodes randomly.
+namespace nndescent {
+
+
+/**
+ * @brief Initializes the nearest neighbor graph with random neighbors for
+ * missing nodes.
+ *
+ * @param data The input data matrix.
+ * @param current_graph The current nearest neighbor graph to initialize.
+ * @param n_neighbors The number of neighbors.
+ * @param dist The distance metric used for neighbor selection.
+ * @param rng_state The random state used for randomization.
+ */
 void init_random
 (
     const Matrix<float> &data,
@@ -29,13 +39,10 @@ void init_random
     RandomState &rng_state
 )
 {
-    // TODO assert must not be triggered
-    assert(n_neighbors <= current_graph.nheaps());
-
-    // TODO parallel
     for (size_t idx0 = 0; idx0 < current_graph.nheaps(); ++idx0)
     {
         int missing = n_neighbors - current_graph.size(idx0);
+
         // Sample nodes
         for (int j = 0; j < missing; ++j)
         {
@@ -47,7 +54,11 @@ void init_random
 }
 
 
-// Adds every node to its own neighborhod.
+/**
+ * @brief Adds every node to its own neighborhod.
+ *
+ * @param current_graph The current nearest neighbor graph.
+ */
 void add_zero_node
 (
     HeapList<float> &current_graph
@@ -59,6 +70,20 @@ void add_zero_node
     }
 }
 
+
+/*
+ * @brief Corrects distances using a distance correction function.
+ *
+ * Some metrics have alternative forms that allow for faster calculations.
+ * However, these alternative forms may produce slightly different distances
+ * compared to the original metric. This function applies a distance correction
+ * by using the provided distance correction function to adjust the distances
+ * calculated using the alternative form.
+ *
+ * @param distance_correction The distance correction function to be applied.
+ * @param in The input matrix of distances to be corrected.
+ * @param out The output matrix of corrected distances.
+ */
 void correct_distances
 (
     Function1d distance_correction,
@@ -78,8 +103,21 @@ void correct_distances
 }
 
 
-
-void update_by_leaves(
+ /**
+ * @brief Updates the nearest neighbor graph using leaves constructed from
+ * random projection trees.
+ *
+ * This function updates the nearest neighbor graph by incorporating the
+ * information from the leaves constructed from random projection trees.
+ *
+ * @param data The input data matrix.
+ * @param current_graph The current nearest neighbor graph.
+ * @param leaf_array The matrix of leaf indices.
+ * @param dist The distance metric used for nearest neighbor calculations.
+ * @param n_threads The number of threads to use for parallelization.
+ */
+void update_by_leaves
+(
     const Matrix<float> &data,
     HeapList<float> &current_graph,
     Matrix<int> &leaf_array,
@@ -159,41 +197,19 @@ void update_by_leaves(
     }
 }
 
-void update_by_rp_forest(
-    const Matrix<float> &data,
-    HeapList<float> &current_graph,
-    std::vector<IntMatrix> &forest,
-    const Metric &dist
-)
-{
-    for (const auto& tree : forest)
-    {
-        for (const auto& leaf : tree)
-        {
-            for (const int& idx0 : leaf)
-            {
-                for (const int& idx1 : leaf)
-                {
-                    if (idx0 >= idx1)
-                    {
-                        continue;
-                    }
-                    float d = dist(
-                        data.begin(idx0), data.end(idx0), data.begin(idx1)
-                    );
-                    current_graph.checked_push(idx0, idx1, d, NEW);
-                    current_graph.checked_push(idx1, idx0, d, NEW);
 
-                }
-            }
-        }
-    }
-}
-
-
-// Build a heap of candidate neighbors for nearest neighbor descent. For
-// each vertex the candidate neighbors are any current neighbors, and any
-// vertices that have the vertex as one of their nearest neighbors.
+/*
+ * @brief Builds a heap of candidate neighbors for nearest neighbor descent.
+ *
+ * For each vertex, the candidate neighbors include any current neighbors and
+ * any vertices that have the vertex as one of their nearest neighbors.
+ *
+ * @param current_graph The current nearest neighbor graph.
+ * @param new_candidates The empty heap of new candidate neighbors.
+ * @param old_candidates The empty heap of old candidate neighbors.
+ * @param rng_state The random state used for randomization.
+ * @param n_threads The number of threads to use for parallelization.
+ */
 void sample_candidates
 (
     HeapList<float> &current_graph,
@@ -270,6 +286,25 @@ void sample_candidates
     }
 }
 
+
+/*
+ * @brief Generates potential nearest neighbor updates.
+ *
+ * This function generates potential nearest neighbor updates, which are
+ * objects containing two identifiers that identify nodes and their
+ * corresponding distance.
+ *
+ * @param data The input data matrix.
+ * @param current_graph The current nearest neighbor graph.
+ * @param new_candidate_neighbors The heap of new candidate neighbors.
+ * @param old_candidate_neighbors The heap of old candidate neighbors.
+ * @param dist The distance metric used for calculating distances.
+ * @param n_threads The number of threads to use for parallelization.
+ * @param verbose The verbosity flag indicating whether to enable logging
+ * messages.
+ * @return A vector of vectors of NNUpdate objects representing the nearest
+ * neighbor updates.
+ */
 std::vector<std::vector<NNUpdate>> generate_graph_updates
 (
     const Matrix<float> &data,
@@ -277,8 +312,7 @@ std::vector<std::vector<NNUpdate>> generate_graph_updates
     HeapList<int> &new_candidate_neighbors,
     HeapList<int> &old_candidate_neighbors,
     const Metric &dist,
-    int n_threads,
-    int verbose
+    int n_threads
 )
 {
     assert(data.nrows() == new_candidate_neighbors.nheaps());
@@ -340,17 +374,27 @@ std::vector<std::vector<NNUpdate>> generate_graph_updates
                     }
                 }
             }
-            // log(
-                // "\t\tGenerate updates " + std::to_string(i + 1) + "/"
-                    // + std::to_string(new_candidate_neighbors.nheaps()),
-                // (verbose && (i % (new_candidate_neighbors.nheaps() / 4) == 0))
-            // );
         }
     }
 
     return updates;
 }
 
+
+/*
+ * @brief Applies graph updates to the current nearest neighbor graph.
+ *
+ * @param current_graph The current nearest neighbor graph.
+ * @param updates A vector of vectors of NNUpdate objects representing the
+ * potential graph updates.
+ * @param n_threads The number of threads to use for parallelization.
+ * @return The number of updates applied to the graph.
+ */
+int apply_graph_updates(
+    HeapList<float>& current_graph,
+    std::vector<std::vector<NNUpdate>>& updates,
+    int n_threads
+);
 
 int apply_graph_updates
 (
@@ -389,12 +433,34 @@ int apply_graph_updates
 }
 
 
+/**
+ * @brief Performs the NN-descent algorithm for approximate nearest neighbor
+ * search.
+ *
+ * This function applies the NN-descent algorithm to construct an approximate
+ * nearest neighbor graph. It iteratively refines the graph by exploring
+ * neighbor candidates and updating the graph connections based on the
+ * distances between nodes. The algorithm aims to find a graph that represents
+ * the nearest neighbor relationships in the data.
+ *
+ * @param data The input data matrix.
+ * @param current_graph The initial nearest neighbor graph.
+ * @param n_neighbors The desired number of neighbors for each node.
+ * @param rng_state The random state used for randomization.
+ * @param max_candidates The maximum number of candidate neighbors to consider
+ * during exploration.
+ * @param dist The metric used for distance computation.
+ * @param n_iters The number of iterations to perform.
+ * @param delta The value controlling the early abort.
+ * @param n_threads The number of threads to use for parallelization.
+ * @param verbose Flag indicating whether to print progress and diagnostic messages.
+ */
 void nn_descent
 (
     const Matrix<float> &data,
     HeapList<float> &current_graph,
     int n_neighbors,
-    RandomState rng_state,
+    RandomState &rng_state,
     int max_candidates,
     const Metric &dist,
     int n_iters,
@@ -406,8 +472,6 @@ void nn_descent
     assert(current_graph.nheaps() == data.nrows());
 
     log("NN descent for " + std::to_string(n_iters) + " iterations", verbose);
-
-    global_timer.stop("nn descent: init");
 
     for (int iter = 0; iter < n_iters; ++iter)
     {
@@ -422,8 +486,6 @@ void nn_descent
         HeapList<int> new_candidates(data.nrows(), max_candidates, MAX_INT);
         HeapList<int> old_candidates(data.nrows(), max_candidates, MAX_INT);
 
-        global_timer.stop("Init HeapLists");
-
         sample_candidates(
             current_graph,
             new_candidates,
@@ -431,10 +493,6 @@ void nn_descent
             rng_state,
             n_threads
         );
-        // std::cout << "NEW=" << new_candidates << "\n";
-        // std::cout << "OLD=" << old_candidates << "\n";
-        global_timer.stop("sample_candidates");
-        // std::cout << "current_graph with flags=" << current_graph;
 
         std::vector<std::vector<NNUpdate>> updates = generate_graph_updates(
             data,
@@ -442,20 +500,15 @@ void nn_descent
             new_candidates,
             old_candidates,
             dist,
-            n_threads,
-            verbose
+            n_threads
         );
-        // std::cout << "updates=" << updates;
-        global_timer.stop("generate_graph_updates");
 
         int cnt = apply_graph_updates(
             current_graph,
             updates,
             n_threads
         );
-        // std::cout << "current_graph updated=" << current_graph;
         log("\t\t" + std::to_string(cnt) + " updates applied", verbose);
-        global_timer.stop("apply apply_graph_updates updates");
 
         if (cnt < delta * data.nrows() * n_neighbors)
         {
@@ -524,6 +577,7 @@ void NNDescent::set_parameters(Parms &parms)
     if (n_trees == NONE)
     {
         n_trees = 5 + (int)std::round(std::pow(data.nrows(), 0.25));
+
         // Only so many trees are useful
         n_trees = std::min(32, n_trees);
     }
@@ -573,7 +627,6 @@ NNDescent::NNDescent(Matrix<float> &input_data, Parms &parms)
     : data(input_data)
     , current_graph(input_data.nrows(), parms.n_neighbors, FLOAT_MAX, NEW)
 {
-    global_timer.stop("NNDescent constructor with parms");
     this->set_parameters(parms);
     this->start();
 }
@@ -582,7 +635,6 @@ NNDescent::NNDescent(Matrix<float> &input_data, int n_neighbors)
     : data(input_data)
     , current_graph(input_data.nrows(), n_neighbors, FLOAT_MAX, NEW)
 {
-    global_timer.stop("NNDescent constructor empty parms");
 }
 
 void NNDescent::start()
@@ -593,37 +645,23 @@ void NNDescent::start()
         return;
     }
 
-    global_timer.stop("Contructor to start");
-
     if (tree_init)
     {
         log(
             "Building RP forest with " + std::to_string(n_trees) + " trees",
             verbose
         );
-        std::vector<RPTree> forest = make_forest(
+        forest = make_forest(
             data, n_trees, leaf_size, rng_state
         );
-        // std::cout << "forest=" << forest;
-        global_timer.stop("make forest");
 
         log("Update Graph by  RP forest", verbose);
 
         Matrix<int> leaf_array = get_leaves_from_forest(forest);
-        // std::cout << "leaf_array=" << leaf_array;
-        global_timer.stop("make leaf array");
         update_by_leaves(data, current_graph, leaf_array, dist, n_threads);
-        global_timer.stop("update by leaf array");
-
-
-        // update_by_rp_forest(data, current_graph, forest, dist);
-        // std::cout << current_graph;
-        global_timer.stop("update graph by rp-tree forest");
     }
 
     init_random(data, current_graph, n_neighbors, dist, rng_state);
-    // std::cout << "curent graph 0=" << current_graph;
-    global_timer.stop("random init neighbours");
 
     nn_descent(
         data,
@@ -637,22 +675,17 @@ void NNDescent::start()
         n_threads,
         verbose
     );
-    global_timer.stop("nn_descent");
 
     // Make shure every nodes neighborhod contains the node itself.
     add_zero_node(current_graph);
 
     current_graph.heapsort();
-    global_timer.stop("heapsort");
 
     correct_distances(
         distance_correction, current_graph.keys, neighbor_distances
     );
 
     neighbor_indices = current_graph.indices;
-    // std::cout << "end current graph=" << current_graph;
-    // std::cout << neighbor_indices;
-    // std::cout << *this;
 }
 
 void prune_long_edges
@@ -662,21 +695,23 @@ void prune_long_edges
     RandomState &rng_state,
     Metric &dist,
     int n_threads,
+    bool verbose,
     float prune_probability=1.0f
 )
 {
-    // #pragma omp parallel for num_threads(n_threads)
+    #pragma omp parallel for num_threads(n_threads)
     for (size_t i = 0; i < graph.nheaps(); ++i)
     {
-        std::vector<int> new_indices = { graph.indices(i, 0) };
-        std::vector<float> new_keys = { graph.keys(i, 0) };
+        std::vector<int> new_indices;
+        std::vector<float> new_keys;
+        // First element is node itself and can be pruned.
         for (size_t j = 1; j < graph.nnodes(); ++j)
         {
             int idx = graph.indices(i, j);
             float key = graph.keys(i, j);
             if  (idx == NONE)
             {
-                break;
+                continue;
             }
 
             bool add_node = true;
@@ -723,27 +758,173 @@ void prune_long_edges
     }
 }
 
-void NNDescent::init_search_graph()
+void NNDescent::query(const Matrix<float> &query_data, int k, float epsilon)
 {
-    search_graph = current_graph;
+    if (algorithm == "bf")
+    {
+        return query_brute_force(query_data, k);
+    }
+    if (!search_function_prepared)
+    {
+        prepare();
+    }
+    // std::cout << "query: search_graph:\n" << search_graph.indices << "\n";
+    HeapList<float> query_nn(query_data.nrows(), k, FLOAT_MAX);
+    for (size_t i = 0; i < query_nn.nheaps(); ++i)
+    {
+        // Initialization
+        Heap<Candidate> search_candidates;
+        std::vector<int> visited(data.nrows(), 0);
+        // std::cout << "SEARCH TREE=" << search_tree << "\n";
+        std::vector<int> initial_candidates = search_tree.get_leaf(
+            query_data.begin(i), rng_state
+        );
+        for (auto const &idx : initial_candidates)
+        {
+            float d = dist(
+                query_data.begin(i), query_data.end(i), data.begin(idx)
+            );
+            // Don't need to check as indices are guaranteed to be different.
+            // TODO implement push without check.
+            query_nn.checked_push(i, idx, d);
+            visited[idx] = 1;
+            search_candidates.push({idx, d});
+        }
+        int n_random_samples = k - initial_candidates.size();
+        for (int j = 0; j < n_random_samples; ++j)
+        {
+            int idx = rand_int(rng_state) % data.nrows();
+            if (!visited[idx])
+            {
+                float d = dist(
+                    query_data.begin(i), query_data.end(i), data.begin(idx)
+                );
+                query_nn.checked_push(i, idx, d);
+                visited[idx] = 1;
+                search_candidates.push({idx, d});
+            }
+        }
+
+        // Search
+        Candidate candidate = search_candidates.pop();
+        float distance_bound = (1.0f + epsilon) * query_nn.max(i);
+        while (candidate.key < distance_bound)
+        {
+            for (size_t j = 0; j < search_graph.nnodes(); ++j)
+            {
+                int idx = search_graph.indices(candidate.idx, j);
+                if (idx == NONE)
+                {
+                    break;
+                }
+                if (visited[idx])
+                {
+                    continue;
+                }
+                visited[idx] = 1;
+                float d = dist(
+                    query_data.begin(i), query_data.end(i), data.begin(idx)
+                );
+                if (d < distance_bound)
+                {
+                    query_nn.checked_push(i, idx, d);
+                    search_candidates.push({idx, d});
+
+                    // Update bound
+                    distance_bound = (1.0f + epsilon) * query_nn.max(i);
+                }
+            }
+            // Find new nearest candidate point.
+            if (search_candidates.empty())
+            {
+                break;
+            }
+            else
+            {
+                candidate = search_candidates.pop();
+            }
+        }
+    }
+    query_nn.heapsort();
+    query_indices = query_nn.indices;
+    query_distances = query_nn.keys;
+    correct_distances(
+        distance_correction, query_distances, query_distances
+    );
+}
+
+void NNDescent::prepare()
+{
+    // Make a search tree in necessary.
+    if (forest.size() == 0)
+    {
+        forest = make_forest(
+            data, 1, leaf_size, rng_state
+        );
+    }
+    // The trees are very close in their performance. Just choose the first
+    // one.
+    search_tree = forest[0];
+
+    HeapList<float> forward_graph = current_graph;
+
     prune_long_edges
     (
         data,
-        search_graph,
+        forward_graph,
         rng_state,
         dist,
-        n_threads
+        n_threads,
+        verbose,
+        1.0f
     );
-    std::cout << "search_graph=\n" << search_graph << "\n";
-    std::cout << "currentindices=\n" << current_graph.indices << "\n";
-    std::cout << "indices=\n" << search_graph.indices << "\n";
-    std::cout << "currentindices=\n" << current_graph.keys << "\n";
-    std::cout << "keys=\n" << search_graph.keys << "\n";
+
+    if (verbose)
+    {
+        size_t edges_cnt_before = forward_graph.indices.nrows()
+            * forward_graph.indices.ncols();
+        size_t edges_cnt_after = forward_graph.indices.non_none_cnt();
+        log(
+            "Forward graph pruning reduced edges from "
+                + std::to_string(edges_cnt_before)
+                + " to "
+                + std::to_string(edges_cnt_after)
+        );
+    }
+
+    size_t n_seach_cols = std::round(n_neighbors * pruning_degree_multiplier);
+    search_graph = HeapList<float>(data.nrows(), n_seach_cols, FLOAT_MAX);
+
+    for (size_t i = 0; i < forward_graph.nheaps(); ++i)
+    {
+        for (size_t j = 0; j < forward_graph.nnodes(); ++j)
+        {
+            int idx = forward_graph.indices(i, j);
+            if (idx != NONE)
+            {
+                float d = forward_graph.keys(i, j);
+                search_graph.checked_push(i, idx, d);
+                search_graph.checked_push(idx, i, d);
+            }
+        }
+    }
+    search_graph.heapsort();
+
+    if (verbose)
+    {
+        log(
+            "Merging pruned graph with its transpose results in "
+                + std::to_string(search_graph.indices.non_none_cnt())
+                + " edges for the search graph."
+        );
+    }
+
+    search_function_prepared = true;
 }
 
 Matrix<int> NNDescent::brute_force()
 {
-    ProgressBar bar(data.nrows(), 250, verbose);
+    ProgressBar bar(data.nrows(), verbose);
     #pragma omp parallel for num_threads(n_threads)
     for (size_t idx0 = 0; idx0 < data.nrows(); ++idx0)
     {
@@ -758,7 +939,34 @@ Matrix<int> NNDescent::brute_force()
     }
     current_graph.heapsort();
     neighbor_indices = current_graph.indices;
+    correct_distances(
+        distance_correction, current_graph.keys, neighbor_distances
+    );
     return neighbor_indices;
+}
+
+void NNDescent::query_brute_force(const Matrix<float> &query_data, int k)
+{
+    HeapList<float> query_nn(query_data.nrows(), k, FLOAT_MAX);
+    ProgressBar bar(query_data.nrows(), verbose);
+    #pragma omp parallel for num_threads(n_threads)
+    for (size_t idx_q = 0; idx_q < query_data.nrows(); ++idx_q)
+    {
+        bar.show();
+        for (size_t idx_d = 0; idx_d < data.nrows(); ++idx_d)
+        {
+            float d = dist(
+                query_data.begin(idx_q), query_data.end(idx_q), data.begin(idx_d)
+            );
+            query_nn.checked_push(idx_q, idx_d, d);
+        }
+    }
+    query_nn.heapsort();
+    query_indices = query_nn.indices;
+    query_distances = query_nn.keys;
+    correct_distances(
+        distance_correction, query_distances, query_distances
+    );
 }
 
 std::ostream& operator<<(std::ostream &out, const NNDescent &nnd)
@@ -809,21 +1017,21 @@ void NNDescent::get_distance_function()
     {
         dist = chebyshev<It, It>;
     }
-    else if (metric == "minkowski")
-    {
+    // else if (metric == "minkowski")
+    // {
         // float p = 2.0f;
-    }
+    // }
     else if (metric == "standardised_euclidean")
     {
         // dist = standardised_euclidean<It, It>;
     }
-    else if (metric == "weighted_minkowski")
-    {
-    }
-    else if (metric == "mahalanobis")
-    {
+    // else if (metric == "weighted_minkowski")
+    // {
+    // }
+    // else if (metric == "mahalanobis")
+    // {
         // dist = mahalanobis<It, It>;
-    }
+    // }
     else if (metric == "canberra")
     {
         dist = canberra<It, It>;
@@ -835,7 +1043,7 @@ void NNDescent::get_distance_function()
     else if (metric == "dot")
     {
         dist = alternative_dot<It, It>;
-        // TODO dot and cosine data must be normed
+        // TODO For dot and cosine data should be normed
         // dist = dot<It, It>;
     }
     else if (metric == "correlation")
@@ -871,14 +1079,14 @@ void NNDescent::get_distance_function()
     {
         dist = hellinger<It, It>;
     }
-    else if (metric == "wasserstein_1d")
-    {
+    // else if (metric == "wasserstein_1d")
+    // {
         // dist = wasserstein_1d<It, It>;
-    }
-    else if (metric == "circular_kantorovich")
-    {
+    // }
+    // else if (metric == "circular_kantorovich")
+    // {
         // dist = circular_kantorovich<It, It>;
-    }
+    // }
     else if (metric == "jensen_shannon")
     {
         dist = jensen_shannon_divergence<It, It>;
@@ -938,3 +1146,4 @@ void NNDescent::get_distance_function()
     }
 }
 
+} // namespace nndescent

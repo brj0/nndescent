@@ -1,9 +1,27 @@
 """
-Simple toy dataset.
+ Olivetty faces is a 400x4096 image dataset useful for quick checking
+ and debugging.
 """
 
-import numpy as np
+import os
+
+from sklearn.datasets import fetch_olivetti_faces
+from sklearn.model_selection import train_test_split
 import nndescent
+import numpy as np
+
+DATA_PATH = os.path.expanduser("~/Downloads/nndescent_test_data")
+
+
+def accuracy(approx_neighbors, true_neighbors):
+    """Returns accuracy of algorithm when compared with exact values."""
+    result = np.zeros(approx_neighbors.shape[0])
+    for i in range(approx_neighbors.shape[0]):
+        n_correct = np.intersect1d(
+            approx_neighbors[i], true_neighbors[i]
+        ).shape[0]
+        result[i] = n_correct / true_neighbors.shape[1]
+    print(f"Average accuracy of {np.mean(result)}\n")
 
 
 def nn_brute_force(train, test, n_neighbors):
@@ -20,31 +38,16 @@ def nn_brute_force(train, test, n_neighbors):
 
 
 # Data
-data = np.array(
-    [
-        [1, 10],
-        [17, 5],
-        [59, 5],
-        [60, 5],
-        [9, 13],
-        [60, 13],
-        [17, 19],
-        [54, 19],
-        [52, 20],
-        [54, 22],
-        [9, 25],
-        [70, 28],
-        [31, 31],
-        [9, 32],
-        [52, 32],
-        [67, 33],
-    ],
-    dtype=np.float32,
+olivetti_faces = fetch_olivetti_faces(data_home=DATA_PATH).data
+data, query_data = train_test_split(
+    olivetti_faces, test_size=0.2, random_state=1234
 )
 
 
-# Run NND algorithm
-n_neighbors = 4
+# NEAREST NEIGHBORS - TRAINING
+
+# Run NND algorithm.
+n_neighbors = 30
 nnd = nndescent.NNDescent(data, n_neighbors=n_neighbors)
 
 # Get result
@@ -53,33 +56,26 @@ nn_indices, nn_distances = nnd.neighbor_graph
 # Calculate exact nearest neighbors for comparison.
 nn_indices_ect = nn_brute_force(data, data, n_neighbors)
 
-
 print("\nInput data\n", data)
 print("\nApproximate nearest neighbors\n", nn_indices)
 print("\nExact nearest neighbors\n", nn_indices_ect)
 print("\nApproximate nearest neighbors distances\n", nn_distances)
+print("\nAccuracy of nndescent algorithm compared with exact values (train):")
+accuracy(nn_indices, nn_indices_ect)
 
-# Query data
-query_data = np.array(
-    [
-        [5, 34],
-        [65, 12],
-        [44, 0],
-        [18, 16],
-        [52, 19],
-        [35, 9],
-        [1, 9],
-    ],
-    dtype=np.float32,
-)
 
-# Calculate nearest neighbors for each query point
-k_query = 6
+# NEAREST NEIGHBORS - TESTING
+
+# Calculate nearest neighbors for each query point.
+k_query = 10
 nn_query_indices, nn_query_distances = nnd.query(query_data, k=k_query)
 
 # Calculate exact nearest neighbors for comparison.
 nn_query_indices_ect = nn_brute_force(data, query_data, k_query)
 
+
 print("\nInput query data\n", query_data)
 print("\nApproximate nearest neighbors of query points\n", nn_query_indices)
 print("\nExact nearest neighbors of query points\n", nn_query_indices_ect)
+print("\nAccuracy of nndescent algorithm compared with exact values (test):")
+accuracy(nn_query_indices, nn_query_indices_ect)

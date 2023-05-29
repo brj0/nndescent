@@ -1,6 +1,6 @@
 appname := nnd
 
-sources := src/dtypes.cpp src/rp_trees.cpp src/nnd.cpp tests/test0.cpp src/utils.cpp
+sources := src/dtypes.cpp src/rp_trees.cpp src/nnd.cpp tests/trash.test0.cpp src/utils.cpp
 objects := $(patsubst %.cpp,%.o,$(sources))
 depends := $(patsubst %.cpp,%.d,$(sources))
 
