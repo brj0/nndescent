@@ -22,6 +22,7 @@ Nearest Neighbor Descent (nndescent) is a C++ implementation of the nearest neig
     - 'haversine'
     - 'hamming'
     - 'hellinger'
+
 Please note that not all distances have undergone thorough testing. Therefore, it is advised to use them with caution and at your own discretion.
 
 
