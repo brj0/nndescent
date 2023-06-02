@@ -51,7 +51,7 @@ module = Extension(
 )
 
 setup(
-    name="nnd",
+    name="nndescent",
     version=get_version_string(),
     description="C++ extension implementing nearest neighbour descent",
     install_requires=[

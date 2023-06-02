@@ -298,7 +298,7 @@ for name, url_name in ANNBEN.items():
     )
 
 # Summary
-print("# Benchmark test pynndescent vs nndescent")
+print("# Benchmark test pynndescent (py) vs nndescent (c)")
 print(
     "Data set  | py train [ms] | c train [ms] | ratio | py vs c match"
     " | py test [ms] | c test [ms] | ratio | py accuracy | c accuracy"

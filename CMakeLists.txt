@@ -5,7 +5,7 @@ project(nndescent
     LANGUAGES CXX
     DESCRIPTION "A C++ implementation of the nearest neighbour descent algorithm")
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS
     "-Wall -g -pg -Ofast -march=native -flto -fno-math-errno -fopenmp -pg")
 

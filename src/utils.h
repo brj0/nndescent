@@ -1,33 +1,116 @@
+/**
+ * @file utils.h
+ *
+ * @brief Contains utility functions.
+ */
+
+
 #pragma once
 
 #include <chrono>
 #include <cstdint>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <iomanip>
 
-namespace nndescent {
 
+namespace nndescent
+{
+
+
+// Constants
 const int NONE = -1;
 const int STATE_SIZE = 4;
 
+// Types
 typedef uint64_t RandomState[STATE_SIZE];
 
+
+/**
+ * @brief Initialize the state of the random number generator.
+ *
+ * This function initializes the state of the random number generator
+ * represented by 's' from the specified seed value. If the seed value is set
+ * to NONE, a random value will be used.
+ *
+ * @param s The random number generator seed state.
+ *
+ * @param seed The seed value to initialize the random number generator. Use
+ * NONE for a random value.
+ */
 void seed_state(RandomState &s, uint64_t seed=NONE);
+
+
+/**
+ * @brief Generate a random 64-bit integer using the xoshiro256+ random number
+ * generator.
+ *
+ * This function generates a random 64-bit integer using the highly efficient
+ * xoshiro256+ random number generator based on the provided random number
+ * generator state 's'.
+ *
+ * @param s The random number generator state.
+ * @return A random 64-bit integer.
+ *
+ * @see https://prng.di.unimi.it/xoshiro256plus.c
+ */
 uint64_t rand_int(RandomState &s);
+
+
+/**
+ * @brief Generate a random float in the range [0, 1) using the xoshiro256+
+ * random number generator.
+ *
+ * This function generates a random float in the range [0, 1) using the highly
+ * efficient xoshiro256+ random number generator based on the provided random
+ * number generator state 's'.
+ *
+ * @param s The random number generator state.
+ * @return A random float in the range [0, 1).
+ */
 float rand_float(RandomState &s);
 
-// Timer class for debugging and benchmarking.
+
+/**
+ * @brief Timer class for measuring elapsed time.
+ *
+ * The Timer class provides a simple interface for measuring elapsed time. It
+ * can be used for debugging purposes or for benchmarking code performance.
+ *
+ * Usage:
+ * Timer timer;
+ * timer.start();                // Start the timer
+ * // Code to be timed
+ * timer.stop("Output text");    // Stop the timer and print to standart output
+ */
 class Timer
 {
     private:
         std::chrono::time_point<std::chrono::system_clock> time;
     public:
         Timer() { start(); }
+
+
+        /**
+         * @brief Start the timer.
+         *
+         * This function starts the timer and sets the initial timestamp.
+         */
         void start()
         {
             time = std::chrono::high_resolution_clock::now();
         }
+
+
+        /**
+         * @brief Stop the timer and log a message.
+         *
+         * This function stops the timer, updates the end timestamp, and
+         * optionally logs a message.
+         *
+         * @param text The message to be logged.
+         */
         void stop(std::string text)
         {
             auto end = std::chrono::high_resolution_clock::now();
@@ -43,6 +126,12 @@ class Timer
 };
 
 
+/**
+ * @brief Class for displaying a progress bar.
+ *
+ * The ProgressBar class provides a way to display a progress bar. It can be
+ * used to visually represent the progress of a task or an operation.
+ */
 class ProgressBar
 {
 private:
@@ -107,6 +196,38 @@ public:
     }
 };
 
+
+/**
+ * @brief Log the provided text if the verbose flag is set.
+ *
+ * This function logs the provided text if the verbose flag is set to true. It
+ * can be used to output informational messages with time stamps during program
+ * execution when verbosity is desired.
+ *
+ * @param text The text to be logged.
+ * @param verbose A flag indicating whether the log message should be printed
+ * (true) or not (false).
+ */
 void log(std::string text, bool verbose=true);
+
+
+/**
+ * @brief Counts the number of elements in a range that are not equal to a
+ * given value.
+ */
+template<class Iter, class T>
+size_t count_if_not_equal(Iter first, Iter last, T value)
+{
+    size_t cnt = 0;
+    for (; first != last; ++first)
+    {
+        if (*first != value)
+        {
+            ++cnt;
+        }
+    }
+    return cnt;
+}
+
 
 } // namespace nndescent

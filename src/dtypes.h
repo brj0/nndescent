@@ -18,7 +18,8 @@
 #include "utils.h"
 
 
-namespace nndescent {
+namespace nndescent
+{
 
 
 /**
@@ -27,11 +28,36 @@ namespace nndescent {
 template <class T>
 class Matrix
 {
+private:
+
+    /**
+     * The number of rows in the matrix.
+     */
+    size_t m_rows;
+
+    /**
+     * The number of columns in the matrix.
+     */
+    size_t m_cols;
+
 public:
+
+    /**
+     * A vector containing the data elements of the matrix.
+     */
+    std::vector<T> m_data;
+
+    /**
+     * A pointer to the raw data of the matrix.
+     */
+    T* m_ptr;
+
+
     /**
      * Default constructor. Creates an empty matrix.
      */
-    Matrix() {}
+    Matrix();
+
 
     /**
      * Constructor to create a matrix with the specified number of rows and
@@ -53,6 +79,7 @@ public:
      */
     Matrix(size_t rows, size_t cols, const T &const_val);
 
+
     /**
      * Constructor to create a matrix with the specified number of rows and
      * columns, and initialize elements from a pointer to external data.
@@ -64,6 +91,7 @@ public:
      */
     Matrix(size_t rows, size_t cols, T *data_ptr);
 
+
     /**
      * Constructor to create a matrix with the specified number of rows and
      * columns, and initialize elements from a vector.
@@ -74,12 +102,14 @@ public:
      */
     Matrix(size_t rows, std::vector<T> &data);
 
+
     /**
      * Copy constructor. Creates a new matrix as a copy of another matrix.
      *
      * @param other The matrix to be copied.
      */
     Matrix(const Matrix<T>& other);
+
 
     /**
      * Move constructor. Creates a new matrix by moving the data from another
@@ -88,6 +118,7 @@ public:
      * @param other The matrix to be moved.
      */
     Matrix(Matrix<T>&& other) noexcept;
+
 
     /**
      * Copy assignment operator. Assigns the contents of another matrix to
@@ -98,6 +129,7 @@ public:
      */
     Matrix<T>& operator=(const Matrix<T>& other);
 
+
     /**
      * Resizes an empty matrix to the specified number of rows and columns.
      *
@@ -105,6 +137,7 @@ public:
      * @param cols The new number of columns in the matrix.
      */
     void resize(size_t rows, size_t cols);
+
 
     /**
      * Accesses the element at the specified row and column index in the
@@ -119,6 +152,7 @@ public:
         return m_ptr[i * m_cols + j];
     }
 
+
     /**
      * Accesses the element at the specified row and column index in the
      * matrix (const version).
@@ -132,6 +166,7 @@ public:
         return m_ptr[i * m_cols + j];
     }
 
+
     /**
      * Returns the number of rows in the matrix.
      *
@@ -139,12 +174,14 @@ public:
      */
     size_t nrows() const { return m_rows; }
 
+
     /**
      * Returns the number of columns in the matrix.
      *
      * @return The number of columns.
      */
     size_t ncols() const { return m_cols; }
+
 
     /**
      * Accesses the element at the specified row index in the matrix.
@@ -154,6 +191,7 @@ public:
      */
     T* operator[](size_t i){ return m_ptr + i*m_cols; }
 
+
     /**
      * Returns a pointer to the beginning of the specified row in the matrix.
      *
@@ -161,6 +199,7 @@ public:
      * @return A pointer to the beginning of the specified row.
      */
     T* begin(size_t i) const { return m_ptr + i*m_cols; }
+
 
     /**
      * Returns a pointer to the end of the specified row in the matrix.
@@ -170,6 +209,7 @@ public:
      */
     T* end(size_t i) const { return m_ptr + (i + 1)*m_cols; }
 
+
     /**
      * Returns the count of non-none elements in the matrix.
      *
@@ -177,86 +217,99 @@ public:
      */
     int non_none_cnt();
 
-    /**
-     * A vector containing the data elements of the matrix.
-     */
-    std::vector<T> m_data;
 
     /**
-     * A pointer to the raw data of the matrix.
+     * @brief Normalize each row of the matrix using the L2 norm.
+     *
+     * Note that the normalization is only performed on non-zero norm rows to
+     * avoid division by zero.
      */
-    T* m_ptr;
+    void normalize();
 
-
-private:
-    /**
-     * The number of rows in the matrix.
-     */
-    size_t m_rows;
 
     /**
-     * The number of columns in the matrix.
+     * @brief Creates a deep copy of the data storage if necessary.
+     *
+     *  If the matrix was initialized with a pointer, this function creates a
+     *  deep copy of the data storage, ensuring that modifications to the copy
+     *  do not affect the original data.
      */
-    size_t m_cols;
+    void deep_copy()
+    {
+        if (m_data.empty())
+        {
+            m_data.assign(m_ptr, m_ptr + m_rows*m_cols);
+        }
+        m_ptr = &m_data[0];
+    }
 };
 
 
 template <class T>
-Matrix<T>::Matrix(size_t rows, size_t cols)
-    : m_data(rows * cols)
+Matrix<T>::Matrix()
+    : m_rows(0)
+    , m_cols(0)
+    , m_data(0)
     , m_ptr(&m_data[0])
-    , m_rows(rows)
+{
+}
+
+template <class T>
+Matrix<T>::Matrix(size_t rows, size_t cols)
+    : m_rows(rows)
     , m_cols(cols)
+    , m_data(rows * cols)
+    , m_ptr(&m_data[0])
 {
 }
 
 
 template <class T>
 Matrix<T>::Matrix(size_t rows, size_t cols, T *data_ptr)
-    : m_data(0)
-    , m_ptr(data_ptr)
-    , m_rows(rows)
+    : m_rows(rows)
     , m_cols(cols)
+    , m_data(0)
+    , m_ptr(data_ptr)
 {
 }
 
 
 template <class T>
 Matrix<T>::Matrix(size_t rows, size_t cols, const T &const_val)
-    : m_data(rows * cols, const_val)
-    , m_ptr(&m_data[0])
-    , m_rows(rows)
+    : m_rows(rows)
     , m_cols(cols)
+    , m_data(rows * cols, const_val)
+    , m_ptr(&m_data[0])
 {
 }
 
 
 template <class T>
 Matrix<T>::Matrix(size_t rows, std::vector<T> &data)
-    : m_data(data)
-    , m_ptr(&m_data[0])
-    , m_rows(rows)
+    : m_rows(rows)
     , m_cols(data.size()/rows)
+    , m_data(data)
+    , m_ptr(&m_data[0])
 {
 }
 
 
 template <class T>
 Matrix<T>::Matrix(const Matrix<T>& other)
-    : m_data(other.m_data)
-    , m_ptr(m_data.empty() ? other.m_ptr : &m_data[0])
-    , m_rows(other.m_rows)
+    : m_rows(other.m_rows)
     , m_cols(other.m_cols)
+    , m_data(other.m_data)
+    , m_ptr(m_data.empty() ? other.m_ptr : &m_data[0])
 {
 }
 
 
 template <class T>
 Matrix<T>::Matrix(Matrix<T>&& other) noexcept
-    : m_data(std::move(other.m_data))
-    , m_ptr(m_data.empty() ? other.m_ptr : &m_data[0])
-    , m_rows(other.m_rows)
+    : m_rows(other.m_rows)
     , m_cols(other.m_cols)
+    , m_data(std::move(other.m_data))
+    , m_ptr(m_data.empty() ? other.m_ptr : &m_data[0])
 {
     other.m_ptr = nullptr;
 }
@@ -295,6 +348,31 @@ int Matrix<T>::non_none_cnt()
         cnt += (*ptr) == NONE ? 0 : 1;
     }
     return cnt;
+}
+
+
+template <class T>
+void Matrix<T>::normalize()
+{
+    for (size_t i = 0; i < m_rows; ++i)
+    {
+        float norm = 0.0f;
+        for (size_t j = 0; j < m_cols; ++j)
+        {
+            norm += (*this)(i, j) * (*this)(i, j);
+        }
+        norm = std::sqrt(norm);
+
+        // Avoid division by zero
+        if (norm > 0.0f)
+        {
+            for (size_t j = 0; j < m_cols; ++j)
+            {
+                (*this)(i, j) /= norm;
+            }
+        }
+    }
+
 }
 
 
@@ -452,7 +530,7 @@ public:
     /**
      * Default constructor. Creates an empty HeapList.
      */
-    HeapList() {}
+    HeapList() : n_heaps(0), n_nodes(0) {}
 
     /**
      * Constructor that initializes the HeapList with specified parameters.
@@ -823,11 +901,7 @@ int HeapList<KeyType>::checked_push(size_t i, int idx, KeyType key)
 template <class KeyType>
 size_t HeapList<KeyType>::size(size_t i) const
 {
-    size_t count = std::count_if(
-        indices.begin(i),
-        indices.end(i),
-        [&](int const &idx){ return idx != NONE; }
-    );
+    size_t count = count_if_not_equal(indices.begin(i), indices.end(i), NONE);
     return count;
 }
 

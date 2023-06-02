@@ -1,10 +1,23 @@
+/**
+ * @file utils.cpp
+ *
+ * @brief Contains utility functions.
+ */
+
+
 #include <chrono>
 #include "utils.h"
 
-namespace nndescent {
 
-// Random number generator for seeding, code from
-// https://prng.di.unimi.it/splitmix64.c
+namespace nndescent
+{
+
+
+/**
+ * @brief Random number generator used for seeding.
+ *
+ * @see https://prng.di.unimi.it/splitmix64.c
+ */
 uint64_t splitmix64(uint64_t &x)
 {
     uint64_t z = (x += 0x9e3779b97f4a7c15);
@@ -13,7 +26,7 @@ uint64_t splitmix64(uint64_t &x)
     return z ^ (z >> 31);
 }
 
-// Initialize the seed states of the random number generator.
+
 void seed_state(RandomState &s, uint64_t seed)
 {
     if (seed == (uint64_t)NONE)
@@ -28,8 +41,7 @@ void seed_state(RandomState &s, uint64_t seed)
     s[3] = splitmix64(seed);
 }
 
-// xoshiro256+ 1.0 is a fast random number generator. Code modified from
-// https://prng.di.unimi.it/xoshiro256plus.c
+
 uint64_t rand_int(RandomState &s)
 {
     const uint64_t result = s[0] + s[3];
@@ -43,6 +55,7 @@ uint64_t rand_int(RandomState &s)
     return result;
 }
 
+
 float rand_float(RandomState &s)
 {
     const uint64_t result = s[0] + s[3];
@@ -55,6 +68,7 @@ float rand_float(RandomState &s)
     s[3] = ((s[3] << 45) | (s[3] >> 19));
     return (float)result / ((float)UINT64_MAX);
 }
+
 
 void log(std::string text, bool verbose)
 {

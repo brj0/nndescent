@@ -1,3 +1,10 @@
+/*
+ * @file pybind11ings.cpp
+ *
+ * @brief Contaings the python bindings.
+ */
+
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
@@ -11,6 +18,9 @@ using namespace nndescent;
 const Parms DEFAULT_PARMS;
 
 
+/**
+ * @brief Convert a nndescent::Matrix<T> object to a NumPy array in Python.
+ */
 template<class T>
 py::array_t<T> to_pyarray(const Matrix<T> &matrix)
 {
@@ -31,6 +41,10 @@ py::array_t<T> to_pyarray(const Matrix<T> &matrix)
 }
 
 
+ /**
+ * @brief Wrapper class for binding the NND (Nearest Neighbor Descent)
+ * algorithm in Python.
+ */
 class NNDWrapper
 {
 private:
@@ -46,16 +60,13 @@ public:
         int n_trees,
         int leaf_size,
         float pruning_degree_multiplier,
-        float diversify_prob,
+        float pruning_prob,
         bool tree_init,
         int seed,
-        bool low_memory,
         int max_candidates,
         int n_iters,
         float delta,
         int n_threads,
-        bool compressed,
-        bool parallel_batch_queries,
         bool verbose,
         std::string algorithm
     )
@@ -82,16 +93,13 @@ public:
         parms.n_trees = n_trees;
         parms.leaf_size = leaf_size;
         parms.pruning_degree_multiplier = pruning_degree_multiplier;
-        parms.diversify_prob = diversify_prob;
+        parms.pruning_prob = pruning_prob;
         parms.tree_init = tree_init;
         parms.seed = seed;
-        parms.low_memory = low_memory;
         parms.max_candidates = max_candidates;
         parms.n_iters = n_iters;
         parms.delta = delta;
         parms.n_threads = n_threads;
-        parms.compressed = compressed;
-        parms.parallel_batch_queries = parallel_batch_queries;
         parms.verbose = verbose;
         parms.algorithm = algorithm;
 
@@ -105,17 +113,14 @@ public:
     int get_leaf_size() const { return nnd.leaf_size; }
     float get_pruning_degree_multiplier() const
         { return nnd.pruning_degree_multiplier; }
-    float get_diversify_prob() const { return nnd.diversify_prob; }
+    float get_pruning_prob() const
+        { return nnd.pruning_prob; }
     bool get_tree_init() const { return nnd.tree_init; }
     int get_seed() const { return nnd.seed; }
-    bool get_low_memory() const { return nnd.low_memory; }
     int get_max_candidates() const { return nnd.max_candidates; }
     int get_n_iters() const { return nnd.n_iters; }
     float get_delta() const { return nnd.delta; }
     int get_n_threads() const { return nnd.n_threads; }
-    bool get_compressed() const { return nnd.compressed; }
-    bool get_parallel_batch_queries() const
-        { return nnd.parallel_batch_queries; }
     bool get_verbose() const { return nnd.verbose; }
     std::string get_algorithm() const { return nnd.algorithm; }
     py::array_t<float> get_data() const
@@ -162,17 +167,14 @@ public:
     void set_leaf_size(int n) { nnd.leaf_size = n; }
     void set_pruning_degree_multiplier(float x)
         { nnd.pruning_degree_multiplier = x; }
-    void set_diversify_prob(float x) { nnd.diversify_prob = x; }
+    void set_pruning_prob(float x)
+        { nnd.pruning_prob = x; }
     void set_tree_init(bool x) { nnd.tree_init = x; }
     void set_seed(int x) { nnd.seed = x; }
-    void set_low_memory(bool x) { nnd.low_memory = x; }
     void set_max_candidates(int x) { nnd.max_candidates = x; }
     void set_n_iters(int x) { nnd.n_iters = x; }
     void set_delta(float x) { nnd.delta = x; }
     void set_n_threads(int x) { nnd.n_threads = x; }
-    void set_compressed(bool x) { nnd.compressed = x; }
-    void set_parallel_batch_queries(bool x)
-        { nnd.parallel_batch_queries = x; }
     void set_verbose(bool x) { nnd.verbose = x; }
     void set_algorithm(const std::string& alg) { nnd.algorithm = alg; }
 };
@@ -184,8 +186,8 @@ PYBIND11_MODULE(nndescent, m)
     m.attr("__version__") = PROJECT_VERSION;
     py::class_<NNDWrapper>(m, "NNDescent")
         .def(py::init<py::object&, const std::string&, int, int, int,
-            float, float, bool, int, bool, int, int, float, int, bool, bool,
-            bool, const std::string&>(),
+            float, float, bool, int, int, int, float, int, bool,
+            const std::string&>(),
             py::arg("data"),
             py::arg("metric")=DEFAULT_PARMS.metric,
             py::arg("n_neighbors")=DEFAULT_PARMS.n_neighbors,
@@ -193,17 +195,14 @@ PYBIND11_MODULE(nndescent, m)
             py::arg("leaf_size")=DEFAULT_PARMS.leaf_size,
             py::arg("pruning_degree_multiplier")
                 =DEFAULT_PARMS.pruning_degree_multiplier,
-            py::arg("diversify_prob")=DEFAULT_PARMS.diversify_prob,
+            py::arg("pruning_prob")
+                =DEFAULT_PARMS.pruning_prob,
             py::arg("tree_init")=DEFAULT_PARMS.tree_init,
             py::arg("seed")=DEFAULT_PARMS.seed,
-            py::arg("low_memory")=DEFAULT_PARMS.low_memory,
             py::arg("max_candidates")=DEFAULT_PARMS.max_candidates,
             py::arg("n_iters")=DEFAULT_PARMS.n_iters,
             py::arg("delta")=DEFAULT_PARMS.delta,
             py::arg("n_threads")=DEFAULT_PARMS.n_threads,
-            py::arg("compressed")=DEFAULT_PARMS.compressed,
-            py::arg("parallel_batch_queries")
-                =DEFAULT_PARMS.parallel_batch_queries,
             py::arg("verbose")=DEFAULT_PARMS.verbose,
             py::arg("algorithm")=DEFAULT_PARMS.algorithm
         )
@@ -228,16 +227,14 @@ PYBIND11_MODULE(nndescent, m)
             &NNDWrapper::get_pruning_degree_multiplier,
             &NNDWrapper::set_pruning_degree_multiplier
         )
-        .def_property("diversify_prob", &NNDWrapper::get_diversify_prob,
-            &NNDWrapper::set_diversify_prob
+        .def_property("pruning_prob",
+            &NNDWrapper::get_pruning_prob,
+            &NNDWrapper::set_pruning_prob
         )
         .def_property("tree_init", &NNDWrapper::get_tree_init,
             &NNDWrapper::set_tree_init
         )
         .def_property("seed", &NNDWrapper::get_seed, &NNDWrapper::set_seed)
-        .def_property("low_memory", &NNDWrapper::get_low_memory,
-            &NNDWrapper::set_low_memory
-        )
         .def_property("max_candidates", &NNDWrapper::get_max_candidates,
             &NNDWrapper::set_max_candidates
         )
@@ -249,13 +246,6 @@ PYBIND11_MODULE(nndescent, m)
         )
         .def_property("n_threads", &NNDWrapper::get_n_threads,
             &NNDWrapper::set_n_threads
-        )
-        .def_property("compressed", &NNDWrapper::get_compressed,
-            &NNDWrapper::set_compressed
-        )
-        .def_property("parallel_batch_queries",
-            &NNDWrapper::get_parallel_batch_queries,
-            &NNDWrapper::set_parallel_batch_queries
         )
         .def_property("verbose", &NNDWrapper::get_verbose,
             &NNDWrapper::set_verbose

@@ -16,6 +16,8 @@
 #include <utility>
 #include <vector>
 
+#include "utils.h"
+
 
 namespace nndescent
 {
@@ -109,11 +111,9 @@ template<class Iter0, class Iter1>
 float manhattan(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     float result = 0.0f;
-    while (first0 != last0)
+    for (;first0 != last0; ++first0, ++first1)
     {
         result = std::move(result) + std::abs(*first0 - *first1);
-        ++first0;
-        ++first1;
     }
     return result;
 }
@@ -278,8 +278,8 @@ float canberra(Iter0 first0, Iter0 last0, Iter1 first1)
 template<class Iter0, class Iter1>
 float bray_curtis(Iter0 first0, Iter0 last0, Iter1 first1)
 {
-    int numerator = 0;
-    int denominator = 0;
+    float numerator = 0.0f;
+    float denominator = 0.0f;
     while (first0 != last0)
     {
         numerator = std::move(numerator) + std::abs(*first0 - *first1);
@@ -287,9 +287,9 @@ float bray_curtis(Iter0 first0, Iter0 last0, Iter1 first1)
         ++first0;
         ++first1;
     }
-    if (denominator > 0)
+    if (denominator > 0.0f)
     {
-        return (float)(numerator)/denominator;
+        return numerator / denominator;
     }
     return 0.0f;
 }
@@ -346,13 +346,9 @@ float alternative_jaccard(Iter0 first0, Iter0 last0, Iter1 first1)
 /**
  * @brief Correction function for Jaccard distance.
  */
-template<class Iter>
-void correct_alternative_jaccard(Iter first0, Iter last0, Iter first1)
+inline float correct_alternative_jaccard(float value)
 {
-    for (; first0 != last0; ++first0, ++first1)
-    {
-        (*first1) = 1.0f - std::pow(2.0f, -*first0);
-    }
+    return 1.0f - std::pow(2.0f, -value);
 }
 
 
@@ -449,12 +445,8 @@ float russellrao(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     int num_true_true = 0;
     size_t dim = last0 - first0;
-    int first0_non0 = std::count_if(
-        first0, last0, [&](auto const &x){ return x != 0; }
-    );
-    int first1_non0 = std::count_if(
-        first1, first1 + dim, [&](auto const &x){ return x != 0; }
-    );
+    int first0_non0 = count_if_not_equal(first0, last0, 0);
+    int first1_non0 = count_if_not_equal(first1, first1 + dim, 0);
     for (; first0 != last0; ++first0, ++first1)
     {
         bool first0_true = (*first0 != 0);
@@ -655,13 +647,9 @@ float alternative_dot(Iter0 first0, Iter0 last0, Iter1 first1)
 /**
  * @brief Correction function for cosine.
  */
-template<class Iter>
-void correct_alternative_cosine(Iter first0, Iter last0, Iter first1)
+inline float correct_alternative_cosine(float value)
 {
-    for (; first0 != last0; ++first0, ++first1)
-    {
-        (*first1) = 1.0f - std::pow(2.0f, -*first0);
-    }
+    return 1.0f - std::pow(2.0f, -value);
 }
 
 
@@ -731,13 +719,9 @@ float true_angular(Iter0 first0, Iter0 last0, Iter1 first1)
 /**
  * @brief Correction function true angular.
  */
-template<class Iter>
-void true_angular_from_alt_cosine(Iter first0, Iter last0, Iter first1)
+inline float true_angular_from_alt_cosine(float value)
 {
-    for (; first0 != last0; ++first0, ++first1)
-    {
-        (*first1) = 1.0f - std::acos(std::pow(2.0f, -*first0)) / PI;
-    }
+    return 1.0f - std::acos(std::pow(2.0f, -value)) / PI;
 }
 
 
@@ -853,13 +837,9 @@ float alternative_hellinger(Iter0 first0, Iter0 last0, Iter1 first1)
 /**
  * @brief Correction function for alternative Hellinger.
  */
-template<class Iter>
-void correct_alternative_hellinger(Iter first0, Iter last0, Iter first1)
+inline float correct_alternative_hellinger(float value)
 {
-    for (; first0 != last0; ++first0, ++first1)
-    {
-        (*first1) = std::sqrt(1.0f - std::pow(2.0f, -*first0));
-    }
+    return std::sqrt(1.0f - std::pow(2.0f, -value));
 }
 
 

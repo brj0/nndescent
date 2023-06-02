@@ -17,7 +17,8 @@
 #include "utils.h"
 #include "rp_trees.h"
 
-namespace nndescent {
+namespace nndescent
+{
 
 
 /**
@@ -239,6 +240,8 @@ void sample_candidates
                     continue;
                 }
 
+                // Setting a random priority results in a random sampling
+                // of at most 'max_candidates' candidates.
                 int priority = rand_int(local_rng_state);
 
                 if (flag == NEW)
@@ -433,28 +436,6 @@ int apply_graph_updates
 }
 
 
-/**
- * @brief Performs the NN-descent algorithm for approximate nearest neighbor
- * search.
- *
- * This function applies the NN-descent algorithm to construct an approximate
- * nearest neighbor graph. It iteratively refines the graph by exploring
- * neighbor candidates and updating the graph connections based on the
- * distances between nodes. The algorithm aims to find a graph that represents
- * the nearest neighbor relationships in the data.
- *
- * @param data The input data matrix.
- * @param current_graph The initial nearest neighbor graph.
- * @param n_neighbors The desired number of neighbors for each node.
- * @param rng_state The random state used for randomization.
- * @param max_candidates The maximum number of candidate neighbors to consider
- * during exploration.
- * @param dist The metric used for distance computation.
- * @param n_iters The number of iterations to perform.
- * @param delta The value controlling the early abort.
- * @param n_threads The number of threads to use for parallelization.
- * @param verbose Flag indicating whether to print progress and diagnostic messages.
- */
 void nn_descent
 (
     const Matrix<float> &data,
@@ -523,6 +504,7 @@ void nn_descent
     log("NN descent done.", verbose);
 }
 
+
 float recall_accuracy(Matrix<int> apx, Matrix<int> ect)
 {
     assert(apx.nrows() == ect.nrows());
@@ -550,6 +532,7 @@ float recall_accuracy(Matrix<int> apx, Matrix<int> ect)
     return (1.0*hits) / (nrows*ncols);
 }
 
+
 void NNDescent::set_parameters(Parms &parms)
 {
     metric = parms.metric;
@@ -557,16 +540,13 @@ void NNDescent::set_parameters(Parms &parms)
     n_trees = parms.n_trees;
     leaf_size = parms.leaf_size;
     pruning_degree_multiplier = parms.pruning_degree_multiplier;
-    diversify_prob = parms.diversify_prob;
+    pruning_prob = parms.pruning_prob;
     tree_init = parms.tree_init;
     seed = parms.seed;
-    low_memory = parms.low_memory;
     max_candidates = parms.max_candidates;
     n_iters = parms.n_iters;
     delta = parms.delta;
     n_threads = parms.n_threads;
-    compressed = parms.compressed;
-    parallel_batch_queries = parms.parallel_batch_queries;
     verbose = parms.verbose;
     algorithm = parms.algorithm;
 
@@ -615,6 +595,12 @@ void NNDescent::set_parameters(Parms &parms)
     {
         angular_trees = false;
     }
+    if (metric == "dot")
+    {
+        // Make shure original data cannot be modified.
+        data.deep_copy();
+        data.normalize();
+    }
     seed_state(rng_state, seed);
     this->get_distance_function();
     if (verbose)
@@ -622,6 +608,7 @@ void NNDescent::set_parameters(Parms &parms)
         std::cout << *this;
     }
 }
+
 
 NNDescent::NNDescent(Matrix<float> &input_data, Parms &parms)
     : data(input_data)
@@ -631,17 +618,19 @@ NNDescent::NNDescent(Matrix<float> &input_data, Parms &parms)
     this->start();
 }
 
+
 NNDescent::NNDescent(Matrix<float> &input_data, int n_neighbors)
     : data(input_data)
     , current_graph(input_data.nrows(), n_neighbors, FLOAT_MAX, NEW)
 {
 }
 
+
 void NNDescent::start()
 {
     if (algorithm == "bf")
     {
-        this->brute_force();
+        this->start_brute_force();
         return;
     }
 
@@ -688,6 +677,23 @@ void NNDescent::start()
     neighbor_indices = current_graph.indices;
 }
 
+
+/*
+ * @brief Prune long edges in the graph.
+ *
+ * This function prunes long edges in the graph, which are edges that are
+ * closer to a node's neighbor than to the node itself. It helps to improve
+ * the efficiency of the k-nearest neighbor graph query search.
+ *
+ * @param data The input data matrix.
+ * @param graph The current k-nearest neighbor graph.
+ * @param rng_state Random number generator state.
+ * @param dist The distance metric used for pruning.
+ * @param n_threads The number of threads to use for parallelization.
+ * @param verbose Flag indicating whether to print verbose output.
+ * @param pruning_prob The probability of pruning a long edge (default:
+ * 1.0).
+ */
 void prune_long_edges
 (
     const Matrix<float> &data,
@@ -695,8 +701,7 @@ void prune_long_edges
     RandomState &rng_state,
     Metric &dist,
     int n_threads,
-    bool verbose,
-    float prune_probability=1.0f
+    float pruning_prob
 )
 {
     #pragma omp parallel for num_threads(n_threads)
@@ -727,7 +732,7 @@ void prune_long_edges
                 {
                     // idx is closer to a node in the neighborhood than
                     // to the central node i, i.e. it is a long edge.
-                    if (rand_float(rng_state) < prune_probability)
+                    if (rand_float(rng_state) < pruning_prob)
                     {
                         add_node = false;
                         break;
@@ -758,24 +763,39 @@ void prune_long_edges
     }
 }
 
-void NNDescent::query(const Matrix<float> &query_data, int k, float epsilon)
+
+void NNDescent::query
+(
+    const Matrix<float> &input_query_data,
+    int k,
+    float epsilon
+)
 {
+    // Make shure original data cannot be modified.
+    Matrix<float> query_data = input_query_data;
+    if (metric == "dot")
+    {
+        query_data.deep_copy();
+        query_data.normalize();
+    }
+
+    assert(query_data.ncols() == data.ncols());
     if (algorithm == "bf")
     {
         return query_brute_force(query_data, k);
     }
-    if (!search_function_prepared)
+    // Check if search_graph already prepared.
+    if (search_graph.nheaps() == 0)
     {
         prepare();
     }
-    // std::cout << "query: search_graph:\n" << search_graph.indices << "\n";
     HeapList<float> query_nn(query_data.nrows(), k, FLOAT_MAX);
     for (size_t i = 0; i < query_nn.nheaps(); ++i)
     {
+
         // Initialization
         Heap<Candidate> search_candidates;
         std::vector<int> visited(data.nrows(), 0);
-        // std::cout << "SEARCH TREE=" << search_tree << "\n";
         std::vector<int> initial_candidates = search_tree.get_leaf(
             query_data.begin(i), rng_state
         );
@@ -853,17 +873,17 @@ void NNDescent::query(const Matrix<float> &query_data, int k, float epsilon)
     );
 }
 
+
 void NNDescent::prepare()
 {
-    // Make a search tree in necessary.
+    // Make a search tree if necessary.
     if (forest.size() == 0)
     {
         forest = make_forest(
             data, 1, leaf_size, rng_state
         );
     }
-    // The trees are very close in their performance. Just choose the first
-    // one.
+    // The trees are very close in their performance, so the first is selected.
     search_tree = forest[0];
 
     HeapList<float> forward_graph = current_graph;
@@ -875,8 +895,7 @@ void NNDescent::prepare()
         rng_state,
         dist,
         n_threads,
-        verbose,
-        1.0f
+        pruning_prob
     );
 
     if (verbose)
@@ -918,11 +937,10 @@ void NNDescent::prepare()
                 + " edges for the search graph."
         );
     }
-
-    search_function_prepared = true;
 }
 
-Matrix<int> NNDescent::brute_force()
+
+void NNDescent::start_brute_force()
 {
     ProgressBar bar(data.nrows(), verbose);
     #pragma omp parallel for num_threads(n_threads)
@@ -942,8 +960,8 @@ Matrix<int> NNDescent::brute_force()
     correct_distances(
         distance_correction, current_graph.keys, neighbor_distances
     );
-    return neighbor_indices;
 }
+
 
 void NNDescent::query_brute_force(const Matrix<float> &query_data, int k)
 {
@@ -969,6 +987,7 @@ void NNDescent::query_brute_force(const Matrix<float> &query_data, int k)
     );
 }
 
+
 std::ostream& operator<<(std::ostream &out, const NNDescent &nnd)
 {
     out << "NNDescent(\n\t"
@@ -979,16 +998,13 @@ std::ostream& operator<<(std::ostream &out, const NNDescent &nnd)
         << "n_trees=" << nnd.n_trees << ",\n\t"
         << "leaf_size=" << nnd.leaf_size << ",\n\t"
         << "pruning_degree_multiplier=" << nnd.pruning_degree_multiplier << ",\n\t"
-        << "diversify_prob=" << nnd.diversify_prob << ",\n\t"
+        << "pruning_prob=" << nnd.pruning_prob << ",\n\t"
         << "tree_init=" << nnd.tree_init  << ",\n\t"
         << "seed=" << nnd.seed  << ",\n\t"
-        << "low_memory=" << nnd.low_memory  << ",\n\t"
         << "max_candidates=" << nnd.max_candidates  << ",\n\t"
         << "n_iters=" << nnd.n_iters  << ",\n\t"
         << "delta=" << nnd.delta  << ",\n\t"
         << "n_threads=" << nnd.n_threads  << ",\n\t"
-        << "compressed=" << nnd.compressed  << ",\n\t"
-        << "parallel_batch_queries=" << nnd.parallel_batch_queries  << ",\n\t"
         << "verbose=" << nnd.verbose  << ",\n\t"
         << "algorithm=" << nnd.algorithm  << ",\n"
         << "\n\t"
@@ -997,9 +1013,19 @@ std::ostream& operator<<(std::ostream &out, const NNDescent &nnd)
     return out;
 }
 
+
+/**
+ * @brief Get the distance function based on the selected metric.
+ *
+ * This function retrieves the appropriate distance function based on the
+ * selected metric. It assigns the distance function to the variable 'dist'
+ * and the distance correction function to the variable 'distance_correction'.
+ * The distance function is used to compute the distance between two points,
+ * while the distance correction function is used to correct the distances at
+ * the end of the calculation if necessary.
+ */
 void NNDescent::get_distance_function()
 {
-
     if (metric == "euclidean")
     {
         dist = squared_euclidean<It, It>;
@@ -1009,46 +1035,44 @@ void NNDescent::get_distance_function()
     {
         dist = squared_euclidean<It, It>;
     }
-    else if (metric == "manhattan")
-    {
-        dist = manhattan<It, It>;
-    }
-    else if (metric == "chebyshev")
-    {
-        dist = chebyshev<It, It>;
-    }
-    // else if (metric == "minkowski")
+    // else if (metric == "standardised_euclidean")
     // {
-        // float p = 2.0f;
-    // }
-    else if (metric == "standardised_euclidean")
-    {
-        // dist = standardised_euclidean<It, It>;
-    }
-    // else if (metric == "weighted_minkowski")
-    // {
-    // }
-    // else if (metric == "mahalanobis")
-    // {
-        // dist = mahalanobis<It, It>;
     // }
     else if (metric == "canberra")
     {
         dist = canberra<It, It>;
     }
-    else if (metric == "cosine")
+    else if (metric == "chebyshev")
     {
-        dist = cosine<It, It>;
-    }
-    else if (metric == "dot")
-    {
-        dist = alternative_dot<It, It>;
-        // TODO For dot and cosine data should be normed
-        // dist = dot<It, It>;
+        dist = chebyshev<It, It>;
     }
     else if (metric == "correlation")
     {
         dist = correlation<It, It>;
+    }
+    else if (metric == "cosine")
+    {
+        dist = cosine<It, It>;
+        distance_correction = correct_alternative_cosine;
+    }
+    else if (metric == "dot")
+    {
+        dist = dot<It, It>;
+    }
+    else if (metric == "braycurtis")
+    {
+        dist = bray_curtis<It, It>;
+    }
+    // else if (metric == "circular_kantorovich")
+    // {
+    // }
+    else if (metric == "dice")
+    {
+        dist = dice<It, It>;
+    }
+    else if (metric == "hamming")
+    {
+        dist = hamming<It, It>;
     }
     else if (metric == "haversine")
     {
@@ -1059,58 +1083,36 @@ void NNDescent::get_distance_function()
             );
         }
     }
-    else if (metric == "braycurtis")
-    {
-        dist = bray_curtis<It, It>;
-    }
-    else if (metric == "spearmanr")
-    {
-        dist = spearmanr<It, It>;
-    }
-    else if (metric == "tsss")
-    {
-        dist = tsss<It, It>;
-    }
-    else if (metric == "true_angular")
-    {
-        dist = true_angular<It, It>;
-    }
     else if (metric == "hellinger")
     {
         dist = hellinger<It, It>;
+        distance_correction = correct_alternative_hellinger;
     }
-    // else if (metric == "wasserstein_1d")
-    // {
-        // dist = wasserstein_1d<It, It>;
-    // }
-    // else if (metric == "circular_kantorovich")
-    // {
-        // dist = circular_kantorovich<It, It>;
-    // }
+    else if (metric == "jaccard")
+    {
+        dist = jaccard<It, It>;
+    }
     else if (metric == "jensen_shannon")
     {
         dist = jensen_shannon_divergence<It, It>;
     }
-    else if (metric == "symmetric_kl")
+    // else if (metric == "mahalanobis")
+    // {
+    // }
+    else if (metric == "manhattan")
     {
-        dist = symmetric_kl_divergence<It, It>;
-    }
-    else if (metric == "hamming")
-    {
-        dist = hamming<It, It>;
-    }
-    else if (metric == "jaccard")
-    {
-        dist = alternative_jaccard<It, It>;
-    }
-    else if (metric == "dice")
-    {
-        dist = dice<It, It>;
+        dist = manhattan<It, It>;
     }
     else if (metric == "matching")
     {
         dist = matching<It, It>;
     }
+    // else if (metric == "minkowski")
+    // {
+    // }
+    // else if (metric == "weighted_minkowski")
+    // {
+    // }
     else if (metric == "kulsinski")
     {
         dist = kulsinski<It, It>;
@@ -1131,6 +1133,26 @@ void NNDescent::get_distance_function()
     {
         dist = sokal_michener<It, It>;
     }
+    else if (metric == "spearmanr")
+    {
+        dist = spearmanr<It, It>;
+    }
+    else if (metric == "symmetric_kl")
+    {
+        dist = symmetric_kl_divergence<It, It>;
+    }
+    else if (metric == "true_angular")
+    {
+        dist = alternative_cosine<It, It>;
+        distance_correction = true_angular_from_alt_cosine;
+    }
+    else if (metric == "tsss")
+    {
+        dist = tsss<It, It>;
+    }
+    // else if (metric == "wasserstein_1d")
+    // {
+    // }
     else if (metric == "yule")
     {
         dist = yule<It, It>;
@@ -1145,5 +1167,6 @@ void NNDescent::get_distance_function()
         distance_correction = identity_function;
     }
 }
+
 
 } // namespace nndescent
