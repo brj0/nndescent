@@ -92,7 +92,7 @@ For detailed usage in C++ and for further Python/C++ examples please refer to th
 
 ## Performance
 
-On my computer, the training phase of nndescent is approximately 10-15% faster than pynndescent. Furthermore, the search query phase shows a significant improvement, with approximately 75% faster execution time. Below is the output obtained from running `tests/benchmark.py`, an ad hoc benchmark test that is not representative of all scenarios (low accuracy in the angular case for pynndescent). In this test, both nndescent and pynndescent were executed with the same parameters using either 'euclidean' or 'dot' as metric:
+On my computer, the training phase of nndescent is approximately 10-15% faster than pynndescent. Furthermore, the search query phase shows a significant improvement, with >70% faster execution time. Below is the output obtained from running `tests/benchmark.py`, an ad hoc benchmark test that is not representative of all scenarios (low accuracy in the angular case for pynndescent). In this test, both nndescent and pynndescent were executed with the same parameters using either 'euclidean' or 'dot' as metric:
 
 
 ### Benchmark test pynndescent (py) vs nndescent (c)

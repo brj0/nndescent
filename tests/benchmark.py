@@ -195,7 +195,7 @@ plt.show()
 
 # Brute force vs kdtrees (must be almost 1.0)
 _, nn_test_kdt, t_train_kdt, t_test_kdt = benchmark_kdtree(**kwargs)
-print("\nfaces: Accuracy bf vs kdtree")
+print("\nfaces_test: Accuracy bf vs kdtree")
 accuracy(nn_test_bf, nn_test_kdt)
 
 # Accuracy relative to pynndescent

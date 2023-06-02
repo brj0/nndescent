@@ -289,9 +289,9 @@ int main()
 
         << "kulsinski(w0, w1) = "
             << kulsinski(w0.begin(), w0.end(), w1.begin()) << "\n"
-        << "jaccar(w0, w2) = "
+        << "kulsinski(w0, w2) = "
             << kulsinski(w0.begin(), w0.end(), w2.begin()) << "\n"
-        << "jaccar(w1, w2) = "
+        << "kulsinski(w1, w2) = "
             << kulsinski(w1.begin(), w1.end(), w2.begin()) << "\n"
 
         << "\n"
