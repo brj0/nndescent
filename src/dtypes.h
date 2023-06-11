@@ -411,6 +411,137 @@ std::ostream& operator<<(std::ostream &out, Matrix<T> const& matrix)
 }
 
 
+template<class T>
+class CSRMatrix
+{
+private:
+
+    /**
+     * The number of rows in the matrix.
+     */
+    size_t m_rows;
+
+    /**
+     * The number of columns in the matrix.
+     */
+    size_t m_cols;
+
+public:
+    std::vector<T> m_data;
+    std::vector<int> m_col_ind;
+    std::vector<int> m_row_ptr;
+
+    CSRMatrix
+    (
+        int rows,
+        int cols,
+        std::vector<T> data,
+        std::vector<int> col_ind,
+        std::vector<int> row_ptr
+    )
+    : m_rows(rows)
+    , m_cols(cols)
+    , m_data(data)
+    , m_col_ind(col_ind)
+    , m_row_ptr(row_ptr)
+    {
+    }
+
+    CSRMatrix(Matrix<T> matrix)
+    : m_rows(matrix.nrows())
+    , m_cols(matrix.ncols())
+    , m_row_ptr(matrix.nrows() + 1, (T)0)
+    {
+        for (size_t i = 0; i < m_rows; ++i)
+        {
+            for (size_t j = 0; j < m_cols; ++j)
+            {
+                if (matrix(i, j) != (T)0)
+                {
+                    m_data.push_back(matrix(i, j));
+                    m_col_ind.push_back(j);
+                    ++m_row_ptr[i + 1];
+                }
+            }
+        }
+        for (size_t i = 1; i <= m_rows; i++)
+        {
+            m_row_ptr[i] += m_row_ptr[i - 1];
+        }
+    }
+
+    // Get the value at the specified row and column
+    inline const T operator()(size_t i, size_t j) const
+    {
+        for (int i = m_row_ptr[i]; i < m_row_ptr[i + 1]; i++)
+        {
+            if (m_col_ind[i] == j)
+            {
+                return m_data[i];
+            }
+        }
+        return (T)0;
+    }
+
+    const int* begin_col(size_t i) const
+    {
+        return &m_col_ind[0] + m_row_ptr[i];
+    }
+
+    const int* end_col(size_t i) const
+    {
+        return &m_col_ind[0] + m_row_ptr[i + 1];
+    }
+
+    const T* begin_data(size_t i) const
+    {
+        return &m_data[0] + m_row_ptr[i];
+    }
+
+    const T* end_data(size_t i) const
+    {
+        return &m_data[0] + m_row_ptr[i + 1];
+    }
+
+
+    /**
+     * Returns the number of rows in the matrix.
+     *
+     * @return The number of rows.
+     */
+    size_t nrows() const { return m_rows; }
+
+
+    /**
+     * Returns the number of columns in the matrix.
+     *
+     * @return The number of columns.
+     */
+    size_t ncols() const { return m_cols; }
+};
+
+
+/*
+* @brief Prints an CSRMatrix<T> object to an output stream.
+*/
+template <class T>
+std::ostream& operator<<(std::ostream &out, CSRMatrix<T> const& matrix)
+{
+    out << "CSRMatrix(m_rows=" << matrix.nrows()
+        << ", m_cols=" << matrix.ncols() << ",\n";
+    for (size_t i = 0; i < matrix.nrows(); ++i)
+    {
+        for (int j = matrix.m_row_ptr[i]; j < matrix.m_row_ptr[i + 1]; ++j)
+        {
+            out << "    (" << i << ", " << matrix.m_col_ind[j] << ")\t"
+                << matrix.m_data[j] << "\n";
+        }
+    }
+    out << ")\n";
+    return out;
+}
+
+
 /*
  * @brief A struct for nearst neighbor candidates in a query search.
  */
@@ -985,7 +1116,7 @@ void print_map(Matrix<float> matrix);
 
 
 template <class T>
-std::ostream& operator<<(std::ostream &out, std::vector<T> &vec)
+std::ostream& operator<<(std::ostream &out, const std::vector<T> &vec)
 {
     out << "[";
     for (size_t i = 0; i < vec.size(); ++i)

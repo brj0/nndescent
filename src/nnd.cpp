@@ -1006,8 +1006,7 @@ std::ostream& operator<<(std::ostream &out, const NNDescent &nnd)
         << "delta=" << nnd.delta  << ",\n\t"
         << "n_threads=" << nnd.n_threads  << ",\n\t"
         << "verbose=" << nnd.verbose  << ",\n\t"
-        << "algorithm=" << nnd.algorithm  << ",\n"
-        << "\n\t"
+        << "algorithm=" << nnd.algorithm  << ",\n\t"
         << "angular_trees=" << nnd.angular_trees  << ",\n"
         << ")\n";
     return out;

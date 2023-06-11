@@ -11,17 +11,17 @@ Nearest Neighbor Descent (nndescent) is a C++ implementation of the nearest neig
 - Currently tested only on Linux.
 - Support currently only for dense matrices.
 - Implementation of multiple distance functions, i.e.
-    - 'euclidean'
-    - 'manhattan'
-    - 'chebyshev'
-    - 'canberra'
-    - 'braycurtis'
-    - 'seuclidean'
-    - 'cosine'
-    - 'correlation'
-    - 'haversine'
-    - 'hamming'
-    - 'hellinger'
+    - euclidean
+    - manhattan
+    - chebyshev
+    - canberra
+    - braycurtis
+    - seuclidean
+    - cosine
+    - correlation
+    - haversine
+    - hamming
+    - hellinger
 
 Please note that not all distances have undergone thorough testing. Therefore, it is advised to use them with caution and at your own discretion.
 

@@ -55,6 +55,68 @@ float squared_euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
 
 
 /**
+ * @brief Sparse squared euclidean distance.
+ */
+template<class IterCol, class IterData>
+float sparse_squared_euclidean
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    float result = 0.0f;
+    // Pass through both index lists
+    while(first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            result += (*data0 - *data1) * (*data0 - *data1);
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            result += (*data0) * (*data0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            result += (*data1) * (*data1);
+
+            ++first1;
+            ++data1;
+        }
+    }
+    // Pass over the tails
+    while(first0 != last0)
+    {
+        result += (*data0) * (*data0);
+
+        ++first0;
+        ++data0;
+    }
+    while(first1 != last1)
+    {
+        result += (*data1) * (*data1);
+
+        ++first1;
+        ++data1;
+    }
+    return result;
+}
+
+
+/**
  * @brief Standard euclidean distance.
  */
 template<class Iter0, class Iter1>
