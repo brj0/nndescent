@@ -50,6 +50,7 @@ class NNDWrapper
 private:
 public:
     Matrix<float> data;
+    CSRMatrix<float> csr_data;
     NNDescent nnd;
 
     NNDWrapper
@@ -71,22 +72,7 @@ public:
         std::string algorithm
     )
     {
-        py::array_t<float> py_data(py_obj);
-        if (!py::isinstance<py::array_t<float>>(py_obj))
-        {
-            throw std::runtime_error("Input should be 2-D float32 NumPy array");
-        }
-        if (py_data.ndim() != 2)
-        {
-            throw std::runtime_error("Input should be 2-D float32 NumPy array");
-        }
-        data = Matrix<float>(
-            py_data.shape()[0],
-            py_data.shape()[1],
-            static_cast<float*>(py_data.request().ptr)
-        );
-        nnd = NNDescent(data, n_neighbors);
-
+        // Read parameters
         Parms parms;
         parms.metric = metric;
         parms.n_neighbors = n_neighbors;
@@ -103,8 +89,65 @@ public:
         parms.verbose = verbose;
         parms.algorithm = algorithm;
 
-        nnd.set_parameters(parms);
-        nnd.start();
+        // Input data is a NumPy array
+        if (py::isinstance<py::array_t<float>>(py_obj))
+        {
+            py::array_t<float> py_data(py_obj);
+            if (py_data.ndim() != 2)
+            {
+                throw std::runtime_error(
+                    "NumPy array 'data' must have dimension 2"
+                );
+            }
+            data = Matrix<float>(
+                py_data.shape()[0],
+                py_data.shape()[1],
+                static_cast<float*>(py_data.request().ptr)
+            );
+            nnd = NNDescent(data, parms);
+        }
+        // Input data is a sparse SciPy CSR matrix
+        else if
+        (
+            py::hasattr(py_obj, "indptr") &&
+            py::hasattr(py_obj, "data") &&
+            py::hasattr(py_obj, "indices")
+        )
+        {
+            // Access the indptr, data, and indices arrays
+            py::array_t<float> py_sparse_data(py_obj.attr("data"));
+            py::array_t<size_t> py_sparse_indices(py_obj.attr("indices"));
+            py::array_t<size_t> py_sparse_indptr(py_obj.attr("indptr"));
+
+            py::tuple shape = py_obj.attr("shape");
+
+            float* sparse_data = static_cast<float*>(
+                py_sparse_data.request().ptr
+            );
+            size_t* sparse_indices = static_cast<size_t*>(
+                py_sparse_indices.request().ptr
+            );
+            size_t* sparse_indptr = static_cast<size_t*>(
+                py_sparse_indptr.request().ptr
+            );
+            size_t rows = py::cast<size_t>(shape[0]);
+            size_t cols = py::cast<size_t>(shape[1]);
+            size_t nnz = py::cast<size_t>(py_obj.attr("nnz"));
+
+            csr_data = CSRMatrix(
+                rows, cols, nnz, sparse_data, sparse_indices, sparse_indptr
+            );
+            std::cout << "csr_data=" << csr_data << "\n";
+        }
+        else
+        {
+            throw std::runtime_error(
+                "'data' must be either a 2D NumPy array of type float32 "
+                "or a sparse CSR matrix containing the attributes 'data', "
+                "'indices' and 'indptr' (for example "
+                "'scipy.sparse._csr.csr_matrix')."
+            );
+        }
     }
 
     std::string get_metric() const { return nnd.metric; }

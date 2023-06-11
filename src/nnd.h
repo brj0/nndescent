@@ -70,6 +70,7 @@ const float DEFAULT_EPSILON = 0.1f;
 // Types
 using It = float*;
 using Metric = float (*)(It, It, It);
+using SparseMetric = float (*)(size_t*, size_t*, It, size_t*, size_t*, It);
 using Function1d = float (*)(float);
 
 
@@ -166,6 +167,23 @@ private:
      * The training data matrix.
      */
     Matrix<float> data;
+
+    /*
+     * The training data as CSR matrix.
+     */
+    CSRMatrix<float> csr_data;
+
+
+    /*
+     * The size of the training data matrix.
+     */
+    size_t data_size;
+
+
+    /*
+     * The dimension of the training data matrix.
+     */
+    size_t data_dim;
 
     /*
      * The random state used for generating random numbers.
@@ -408,20 +426,7 @@ public:
     NNDescent(Matrix<float> &input_data, Parms &parms);
 
 
-    /**
-     * @brief Construct an instance of NNDescent with a specified number of
-     * neighbors.
-     *
-     * This constructor initializes an instance of the NNDescent algorithm with
-     * the given input data and number of neighbors.  The algorithm does not
-     * start automatically and requires an explicit call to the start()
-     * function.
-     *
-     * @param input_data The input data matrix.
-     *
-     * @param n_neighbors The number of neighbors to consider in the algorithm.
-     */
-    NNDescent(Matrix<float> &input_data, int n_neighbors);
+    NNDescent(CSRMatrix<float> &input_data, Parms &parms);
 
 
     /**
@@ -514,14 +519,6 @@ public:
      * @param k The number of nearest neighbors to be returned.
      */
     void query_brute_force(const Matrix<float> &query_data, int k);
-
-
-    /**
-     * @brief Get the size of the data.
-     *
-     * @return The number of rows in the data matrix.
-     */
-    int data_size() {return data.nrows();}
 
 
     /*

@@ -33,7 +33,7 @@ const float FLOAT_EPS = std::numeric_limits<float>::epsilon();
  * @brief Identity function.
  */
 template<class T>
-T identity_function(T value)
+T identity(T value)
 {
     return value;
 }

@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <iostream>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 #include <stdexcept>
 
@@ -556,7 +557,7 @@ void NNDescent::set_parameters(Parms &parms)
     }
     if (n_trees == NONE)
     {
-        n_trees = 5 + (int)std::round(std::pow(data.nrows(), 0.25));
+        n_trees = 5 + (int)std::round(std::pow(data_size, 0.25));
 
         // Only so many trees are useful
         n_trees = std::min(32, n_trees);
@@ -571,7 +572,7 @@ void NNDescent::set_parameters(Parms &parms)
     }
     if (n_iters == NONE)
     {
-        n_iters = std::max(5, (int)std::round(std::log2(data.nrows())));
+        n_iters = std::max(5, (int)std::round(std::log2(data_size)));
     }
     if (n_threads == NONE || n_threads == 0)
     {
@@ -612,6 +613,8 @@ void NNDescent::set_parameters(Parms &parms)
 
 NNDescent::NNDescent(Matrix<float> &input_data, Parms &parms)
     : data(input_data)
+    , data_size(data.nrows())
+    , data_dim(data.ncols())
     , current_graph(input_data.nrows(), parms.n_neighbors, FLOAT_MAX, NEW)
 {
     this->set_parameters(parms);
@@ -619,11 +622,16 @@ NNDescent::NNDescent(Matrix<float> &input_data, Parms &parms)
 }
 
 
-NNDescent::NNDescent(Matrix<float> &input_data, int n_neighbors)
-    : data(input_data)
-    , current_graph(input_data.nrows(), n_neighbors, FLOAT_MAX, NEW)
+NNDescent::NNDescent(CSRMatrix<float> &input_data, Parms &parms)
+    : csr_data(input_data)
+    , data_size(data.nrows())
+    , data_dim(data.ncols())
+    , current_graph(input_data.nrows(), parms.n_neighbors, FLOAT_MAX, NEW)
 {
+    this->set_parameters(parms);
+    // this->start();
 }
+
 
 
 void NNDescent::start()
@@ -1025,145 +1033,68 @@ std::ostream& operator<<(std::ostream &out, const NNDescent &nnd)
  */
 void NNDescent::get_distance_function()
 {
-    if (metric == "euclidean")
+    struct MetricEntry
     {
-        dist = squared_euclidean<It, It>;
-        distance_correction = std::sqrt;
+        Metric dense_metric;
+        SparseMetric sparse_metric;
+        Function1d correction;
+    };
+    std::string metric = "euclidean";
+
+    std::unordered_map<std::string, MetricEntry> metric_map = {
+        {"euclidean", {squared_euclidean, sparse_squared_euclidean, std::sqrt}},
+        {"sqeuclidean", {squared_euclidean, sparse_squared_euclidean, identity}},
+        // {"standardised_euclidean", {standardised_euclidean, nullptr, identity}},
+        {"canberra", {canberra, nullptr, identity}},
+        {"chebyshev", {chebyshev, nullptr, identity}},
+        {"correlation", {correlation, nullptr, identity}},
+        {"cosine", {cosine, nullptr, correct_alternative_cosine}},
+        {"dot", {dot, nullptr, identity}},
+        {"braycurtis", {bray_curtis, nullptr, identity}},
+        // {"circular_kantorovich", {circular_kantorovich, nullptr, identity}},
+        {"dice", {dice, nullptr, identity}},
+        {"hamming", {hamming, nullptr, identity}},
+        {"haversine", {haversine, nullptr, identity}},
+        {"hellinger", {hellinger, nullptr, correct_alternative_hellinger}},
+        {"jaccard", {jaccard, nullptr, identity}},
+        {"jensen_shannon", {jensen_shannon_divergence, nullptr, identity}},
+        // {"mahalanobis", {mahalanobis, nullptr, identity}},
+        {"manhattan", {manhattan, nullptr, identity}},
+        // {"minkowski", {minkowski, nullptr, identity}},
+        // {"weighted_minkowski", {weighted_minkowski, nullptr, identity}},
+        {"matching", {matching, nullptr, identity}},
+        {"kulsinski", {kulsinski, nullptr, identity}},
+        {"rogerstanimoto", {rogers_tanimoto, nullptr, identity}},
+        {"russellrao", {russellrao, nullptr, identity}},
+        {"sokalsneath", {sokal_sneath, nullptr, identity}},
+        {"sokalmichener", {sokal_michener, nullptr, identity}},
+        {"spearmanr", {spearmanr, nullptr, identity}},
+        {"symmetric_kl", {symmetric_kl_divergence, nullptr, identity}},
+        {"true_angular", {alternative_cosine, nullptr, true_angular_from_alt_cosine}},
+        {"tsss", {tsss, nullptr, identity}},
+        // {"wasserstein_1d", {wasserstein_1d, nullptr, identity}},
+        {"yule", {yule, nullptr, identity}}
+    };
+
+    if (metric_map.count(metric) > 0)
+    {
+        const MetricEntry& entry = metric_map[metric];
+        dist = entry.dense_metric;
+        distance_correction = entry.correction;
     }
-    else if (metric == "sqeuclidean")
+    else
     {
-        dist = squared_euclidean<It, It>;
+        throw std::invalid_argument("Invalid metric");
     }
-    // else if (metric == "standardised_euclidean")
-    // {
-    // }
-    else if (metric == "canberra")
+
+    if (metric == "haversine")
     {
-        dist = canberra<It, It>;
-    }
-    else if (metric == "chebyshev")
-    {
-        dist = chebyshev<It, It>;
-    }
-    else if (metric == "correlation")
-    {
-        dist = correlation<It, It>;
-    }
-    else if (metric == "cosine")
-    {
-        dist = cosine<It, It>;
-        distance_correction = correct_alternative_cosine;
-    }
-    else if (metric == "dot")
-    {
-        dist = dot<It, It>;
-    }
-    else if (metric == "braycurtis")
-    {
-        dist = bray_curtis<It, It>;
-    }
-    // else if (metric == "circular_kantorovich")
-    // {
-    // }
-    else if (metric == "dice")
-    {
-        dist = dice<It, It>;
-    }
-    else if (metric == "hamming")
-    {
-        dist = hamming<It, It>;
-    }
-    else if (metric == "haversine")
-    {
-        if (data.ncols() != 2)
+        if (data_dim != 2)
         {
             throw std::invalid_argument(
                 "haversine is only defined for 2 dimensional graph_data"
             );
         }
-    }
-    else if (metric == "hellinger")
-    {
-        dist = hellinger<It, It>;
-        distance_correction = correct_alternative_hellinger;
-    }
-    else if (metric == "jaccard")
-    {
-        dist = jaccard<It, It>;
-    }
-    else if (metric == "jensen_shannon")
-    {
-        dist = jensen_shannon_divergence<It, It>;
-    }
-    // else if (metric == "mahalanobis")
-    // {
-    // }
-    else if (metric == "manhattan")
-    {
-        dist = manhattan<It, It>;
-    }
-    else if (metric == "matching")
-    {
-        dist = matching<It, It>;
-    }
-    // else if (metric == "minkowski")
-    // {
-    // }
-    // else if (metric == "weighted_minkowski")
-    // {
-    // }
-    else if (metric == "kulsinski")
-    {
-        dist = kulsinski<It, It>;
-    }
-    else if (metric == "rogerstanimoto")
-    {
-        dist = rogers_tanimoto<It, It>;
-    }
-    else if (metric == "russellrao")
-    {
-        dist = russellrao<It, It>;
-    }
-    else if (metric == "sokalsneath")
-    {
-        dist = sokal_sneath<It, It>;
-    }
-    else if (metric == "sokalmichener")
-    {
-        dist = sokal_michener<It, It>;
-    }
-    else if (metric == "spearmanr")
-    {
-        dist = spearmanr<It, It>;
-    }
-    else if (metric == "symmetric_kl")
-    {
-        dist = symmetric_kl_divergence<It, It>;
-    }
-    else if (metric == "true_angular")
-    {
-        dist = alternative_cosine<It, It>;
-        distance_correction = true_angular_from_alt_cosine;
-    }
-    else if (metric == "tsss")
-    {
-        dist = tsss<It, It>;
-    }
-    // else if (metric == "wasserstein_1d")
-    // {
-    // }
-    else if (metric == "yule")
-    {
-        dist = yule<It, It>;
-    }
-    else
-    {
-        throw std::invalid_argument("invalid metric");
-    }
-
-    if (!distance_correction)
-    {
-        distance_correction = identity_function;
     }
 }
 

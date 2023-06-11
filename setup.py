@@ -58,7 +58,14 @@ setup(
         "numpy",
     ],
     extras_require={
-        "full": ["h5py", "matplotlib", "pynndescent", "seaborn", "sklearn"],
+        "full": [
+            "h5py",
+            "matplotlib",
+            "pynndescent",
+            "scipy",
+            "seaborn",
+            "sklearn",
+        ],
     },
     ext_modules=[module],
 )

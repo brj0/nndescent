@@ -428,22 +428,40 @@ private:
 
 public:
     std::vector<T> m_data;
-    std::vector<int> m_col_ind;
-    std::vector<int> m_row_ptr;
+    std::vector<size_t> m_col_ind;
+    std::vector<size_t> m_row_ptr;
 
+    CSRMatrix() {}
     CSRMatrix
     (
-        int rows,
-        int cols,
+        size_t rows,
+        size_t cols,
         std::vector<T> data,
-        std::vector<int> col_ind,
-        std::vector<int> row_ptr
+        std::vector<size_t> col_ind,
+        std::vector<size_t> row_ptr
     )
     : m_rows(rows)
     , m_cols(cols)
     , m_data(data)
     , m_col_ind(col_ind)
     , m_row_ptr(row_ptr)
+    {
+    }
+
+    CSRMatrix
+    (
+        size_t rows,
+        size_t cols,
+        size_t nnz,
+        T *data,
+        size_t *col_ind,
+        size_t *row_ptr
+    )
+    : m_rows(rows)
+    , m_cols(cols)
+    , m_data(data, data + nnz)
+    , m_col_ind(col_ind, col_ind + nnz)
+    , m_row_ptr(row_ptr, row_ptr + rows + 1)
     {
     }
 
@@ -473,7 +491,7 @@ public:
     // Get the value at the specified row and column
     inline const T operator()(size_t i, size_t j) const
     {
-        for (int i = m_row_ptr[i]; i < m_row_ptr[i + 1]; i++)
+        for (size_t i = m_row_ptr[i]; i < m_row_ptr[i + 1]; i++)
         {
             if (m_col_ind[i] == j)
             {
@@ -483,22 +501,22 @@ public:
         return (T)0;
     }
 
-    const int* begin_col(size_t i) const
+    size_t* begin_col(size_t i)
     {
         return &m_col_ind[0] + m_row_ptr[i];
     }
 
-    const int* end_col(size_t i) const
+    size_t* end_col(size_t i)
     {
         return &m_col_ind[0] + m_row_ptr[i + 1];
     }
 
-    const T* begin_data(size_t i) const
+    T* begin_data(size_t i)
     {
         return &m_data[0] + m_row_ptr[i];
     }
 
-    const T* end_data(size_t i) const
+    T* end_data(size_t i)
     {
         return &m_data[0] + m_row_ptr[i + 1];
     }
@@ -531,7 +549,7 @@ std::ostream& operator<<(std::ostream &out, CSRMatrix<T> const& matrix)
         << ", m_cols=" << matrix.ncols() << ",\n";
     for (size_t i = 0; i < matrix.nrows(); ++i)
     {
-        for (int j = matrix.m_row_ptr[i]; j < matrix.m_row_ptr[i + 1]; ++j)
+        for (size_t j = matrix.m_row_ptr[i]; j < matrix.m_row_ptr[i + 1]; ++j)
         {
             out << "    (" << i << ", " << matrix.m_col_ind[j] << ")\t"
                 << matrix.m_data[j] << "\n";
