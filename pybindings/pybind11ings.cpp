@@ -41,6 +41,35 @@ py::array_t<T> to_pyarray(const Matrix<T> &matrix)
 }
 
 
+template<class T>
+CSRMatrix<T> to_csr_matrix(py::object &py_obj)
+{
+    // Access the indptr, data, and indices arrays
+    py::array_t<T> py_sparse_data(py_obj.attr("data"));
+    py::array_t<size_t> py_sparse_indices(py_obj.attr("indices"));
+    py::array_t<size_t> py_sparse_indptr(py_obj.attr("indptr"));
+
+    py::tuple shape = py_obj.attr("shape");
+
+    T* sparse_data = static_cast<T*>(
+        py_sparse_data.request().ptr
+    );
+    size_t* sparse_indices = static_cast<size_t*>(
+        py_sparse_indices.request().ptr
+    );
+    size_t* sparse_indptr = static_cast<size_t*>(
+        py_sparse_indptr.request().ptr
+    );
+    size_t rows = py::cast<size_t>(shape[0]);
+    size_t cols = py::cast<size_t>(shape[1]);
+    size_t nnz = py::cast<size_t>(py_obj.attr("nnz"));
+
+    return CSRMatrix<T>(
+        rows, cols, nnz, sparse_data, sparse_indices, sparse_indptr
+    );
+}
+
+
  /**
  * @brief Wrapper class for binding the NND (Nearest Neighbor Descent)
  * algorithm in Python.
@@ -57,6 +86,7 @@ public:
     (
         py::object &py_obj,
         std::string metric,
+        float p_metric,
         int n_neighbors,
         int n_trees,
         int leaf_size,
@@ -75,6 +105,7 @@ public:
         // Read parameters
         Parms parms;
         parms.metric = metric;
+        parms.p_metric = p_metric;
         parms.n_neighbors = n_neighbors;
         parms.n_trees = n_trees;
         parms.leaf_size = leaf_size;
@@ -114,30 +145,8 @@ public:
             py::hasattr(py_obj, "indices")
         )
         {
-            // Access the indptr, data, and indices arrays
-            py::array_t<float> py_sparse_data(py_obj.attr("data"));
-            py::array_t<size_t> py_sparse_indices(py_obj.attr("indices"));
-            py::array_t<size_t> py_sparse_indptr(py_obj.attr("indptr"));
-
-            py::tuple shape = py_obj.attr("shape");
-
-            float* sparse_data = static_cast<float*>(
-                py_sparse_data.request().ptr
-            );
-            size_t* sparse_indices = static_cast<size_t*>(
-                py_sparse_indices.request().ptr
-            );
-            size_t* sparse_indptr = static_cast<size_t*>(
-                py_sparse_indptr.request().ptr
-            );
-            size_t rows = py::cast<size_t>(shape[0]);
-            size_t cols = py::cast<size_t>(shape[1]);
-            size_t nnz = py::cast<size_t>(py_obj.attr("nnz"));
-
-            csr_data = CSRMatrix(
-                rows, cols, nnz, sparse_data, sparse_indices, sparse_indptr
-            );
-            std::cout << "csr_data=" << csr_data << "\n";
+            csr_data = to_csr_matrix<float>(py_obj);
+            nnd = NNDescent(csr_data, parms);
         }
         else
         {
@@ -151,6 +160,7 @@ public:
     }
 
     std::string get_metric() const { return nnd.metric; }
+    float get_p_metric() const { return nnd.p_metric; }
     int get_n_neighbors() const { return nnd.n_neighbors; }
     int get_n_trees() const { return nnd.n_trees; }
     int get_leaf_size() const { return nnd.leaf_size; }
@@ -170,6 +180,14 @@ public:
     {
         return to_pyarray(data);
     }
+    py::tuple get_csr_data() const
+    {
+        return py::make_tuple(
+            py::array_t<float>(py::cast(csr_data.m_data)),
+            py::array_t<float>(py::cast(csr_data.m_col_ind)),
+            py::array_t<float>(py::cast(csr_data.m_row_ptr))
+        );
+    }
     py::tuple get_neighbor_graph() const
     {
         return py::make_tuple(get_indices(), get_distances());
@@ -186,25 +204,62 @@ public:
     {
         return to_pyarray(nnd.current_graph.flags);
     }
-
     py::tuple query
     (
-        py::array_t<float> &py_query_data, int k, float epsilon
+        py::object &py_obj, int k, float epsilon
     )
     {
-        Matrix<float> query_data(
-            py_query_data.shape()[0],
-            py_query_data.shape()[1],
-            static_cast<float*>(py_query_data.request().ptr)
-        );
-        nnd.query(query_data, k, epsilon);
-        Matrix<int> query_indices = nnd.query_indices;
-        Matrix<float> query_distances = nnd.query_distances;
-        return py::make_tuple(
-            to_pyarray(query_indices), to_pyarray(query_distances)
-        );
+        // Input query_data is a NumPy array
+        if (py::isinstance<py::array_t<float>>(py_obj))
+        {
+            py::array_t<float> py_data(py_obj);
+            if (py_data.ndim() != 2)
+            {
+                throw std::runtime_error(
+                    "NumPy array 'query_data' must have dimension 2"
+                );
+            }
+            Matrix<float> query_data(
+                py_data.shape()[0],
+                py_data.shape()[1],
+                static_cast<float*>(py_data.request().ptr)
+            );
+
+            nnd.query(query_data, k, epsilon);
+            Matrix<int> query_indices = nnd.query_indices;
+            Matrix<float> query_distances = nnd.query_distances;
+            return py::make_tuple(
+                to_pyarray(query_indices), to_pyarray(query_distances)
+            );
+        }
+        // Input query_data is a sparse SciPy CSR matrix
+        else if
+        (
+            py::hasattr(py_obj, "indptr") &&
+            py::hasattr(py_obj, "data") &&
+            py::hasattr(py_obj, "indices")
+        )
+        {
+            CSRMatrix<float> csr_query_data = to_csr_matrix<float>(py_obj);
+            nnd.query(csr_query_data, k, epsilon);
+            Matrix<int> query_indices = nnd.query_indices;
+            Matrix<float> query_distances = nnd.query_distances;
+            return py::make_tuple(
+                to_pyarray(query_indices), to_pyarray(query_distances)
+            );
+        }
+        else
+        {
+            throw std::runtime_error(
+                "'query_data' must be either a 2D NumPy array of type float32 "
+                "or a sparse CSR matrix containing the attributes 'data', "
+                "'indices' and 'indptr' (for example "
+                "'scipy.sparse._csr.csr_matrix')."
+            );
+        }
     }
     void set_metric(const std::string& m) { nnd.metric = m; }
+    void set_p_metric(float x) { nnd.p_metric = x; }
     void set_n_neighbors(int n) { nnd.n_neighbors = n; }
     void set_n_trees(int n) { nnd.n_trees = n; }
     void set_leaf_size(int n) { nnd.leaf_size = n; }
@@ -228,11 +283,12 @@ PYBIND11_MODULE(nndescent, m)
     m.doc() = "Calculates approximate k-nearest neighbors";
     m.attr("__version__") = PROJECT_VERSION;
     py::class_<NNDWrapper>(m, "NNDescent")
-        .def(py::init<py::object&, const std::string&, int, int, int,
+        .def(py::init<py::object&, const std::string&, float, int, int, int,
             float, float, bool, int, int, int, float, int, bool,
             const std::string&>(),
             py::arg("data"),
             py::arg("metric")=DEFAULT_PARMS.metric,
+            py::arg("p_metric")=DEFAULT_PARMS.p_metric,
             py::arg("n_neighbors")=DEFAULT_PARMS.n_neighbors,
             py::arg("n_trees")=DEFAULT_PARMS.n_trees,
             py::arg("leaf_size")=DEFAULT_PARMS.leaf_size,
@@ -256,6 +312,9 @@ PYBIND11_MODULE(nndescent, m)
         )
         .def_property("metric", &NNDWrapper::get_metric,
             &NNDWrapper::set_metric
+        )
+        .def_property("p_metric", &NNDWrapper::get_p_metric,
+            &NNDWrapper::set_p_metric
         )
         .def_property("n_neighbors", &NNDWrapper::get_n_neighbors,
             &NNDWrapper::set_n_neighbors
@@ -297,6 +356,7 @@ PYBIND11_MODULE(nndescent, m)
             &NNDWrapper::set_algorithm
         )
         .def_property_readonly("data", &NNDWrapper::get_data)
+        .def_property_readonly("csr_data", &NNDWrapper::get_csr_data)
         .def_property_readonly("indices", &NNDWrapper::get_indices)
         .def_property_readonly("distances", &NNDWrapper::get_distances)
         .def_property_readonly("neighbor_graph",

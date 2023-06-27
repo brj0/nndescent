@@ -416,22 +416,30 @@ class CSRMatrix
 {
 private:
 
+
     /**
      * The number of rows in the matrix.
      */
     size_t m_rows;
+
 
     /**
      * The number of columns in the matrix.
      */
     size_t m_cols;
 
+
 public:
     std::vector<T> m_data;
     std::vector<size_t> m_col_ind;
     std::vector<size_t> m_row_ptr;
 
-    CSRMatrix() {}
+
+    T* m_ptr_data;
+    size_t* m_ptr_col_ind;
+
+
+    CSRMatrix();
     CSRMatrix
     (
         size_t rows,
@@ -439,14 +447,8 @@ public:
         std::vector<T> data,
         std::vector<size_t> col_ind,
         std::vector<size_t> row_ptr
-    )
-    : m_rows(rows)
-    , m_cols(cols)
-    , m_data(data)
-    , m_col_ind(col_ind)
-    , m_row_ptr(row_ptr)
-    {
-    }
+    );
+
 
     CSRMatrix
     (
@@ -456,37 +458,15 @@ public:
         T *data,
         size_t *col_ind,
         size_t *row_ptr
-    )
-    : m_rows(rows)
-    , m_cols(cols)
-    , m_data(data, data + nnz)
-    , m_col_ind(col_ind, col_ind + nnz)
-    , m_row_ptr(row_ptr, row_ptr + rows + 1)
-    {
-    }
+    );
 
-    CSRMatrix(Matrix<T> matrix)
-    : m_rows(matrix.nrows())
-    , m_cols(matrix.ncols())
-    , m_row_ptr(matrix.nrows() + 1, (T)0)
-    {
-        for (size_t i = 0; i < m_rows; ++i)
-        {
-            for (size_t j = 0; j < m_cols; ++j)
-            {
-                if (matrix(i, j) != (T)0)
-                {
-                    m_data.push_back(matrix(i, j));
-                    m_col_ind.push_back(j);
-                    ++m_row_ptr[i + 1];
-                }
-            }
-        }
-        for (size_t i = 1; i <= m_rows; i++)
-        {
-            m_row_ptr[i] += m_row_ptr[i - 1];
-        }
-    }
+
+    CSRMatrix(Matrix<T> matrix);
+
+
+    CSRMatrix(const CSRMatrix<T>& other);
+    CSRMatrix(CSRMatrix<T>&& other) noexcept;
+    CSRMatrix<T>& operator=(const CSRMatrix<T>& other);
 
     // Get the value at the specified row and column
     inline const T operator()(size_t i, size_t j) const
@@ -501,25 +481,37 @@ public:
         return (T)0;
     }
 
-    size_t* begin_col(size_t i)
+    size_t* begin_col(size_t i) const
     {
-        return &m_col_ind[0] + m_row_ptr[i];
+        return m_ptr_col_ind + m_row_ptr[i];
     }
 
-    size_t* end_col(size_t i)
+    size_t* end_col(size_t i) const
     {
-        return &m_col_ind[0] + m_row_ptr[i + 1];
+        return m_ptr_col_ind + m_row_ptr[i + 1];
     }
 
-    T* begin_data(size_t i)
+    T* begin_data(size_t i) const
     {
-        return &m_data[0] + m_row_ptr[i];
+        return m_ptr_data + m_row_ptr[i];
     }
 
-    T* end_data(size_t i)
+    T* end_data(size_t i) const
     {
-        return &m_data[0] + m_row_ptr[i + 1];
+        return m_ptr_data + m_row_ptr[i + 1];
     }
+
+
+    /**
+     * @brief Normalize each row of the matrix using the L2 norm.
+     *
+     * Note that the normalization is only performed on non-zero norm rows to
+     * avoid division by zero.
+     */
+    void normalize();
+
+
+    void deep_copy() {}
 
 
     /**
@@ -537,6 +529,157 @@ public:
      */
     size_t ncols() const { return m_cols; }
 };
+
+
+template <class T>
+CSRMatrix<T>::CSRMatrix()
+    : m_rows(0)
+    , m_cols(0)
+    , m_data(0)
+    , m_col_ind(0)
+    , m_row_ptr(0)
+    , m_ptr_data(&m_data[0])
+    , m_ptr_col_ind(&m_col_ind[0])
+{
+}
+
+
+template <class T>
+CSRMatrix<T>::CSRMatrix
+(
+    size_t rows,
+    size_t cols,
+    std::vector<T> data,
+    std::vector<size_t> col_ind,
+    std::vector<size_t> row_ptr
+)
+    : m_rows(rows)
+    , m_cols(cols)
+    , m_data(data)
+    , m_col_ind(col_ind)
+    , m_row_ptr(row_ptr)
+    , m_ptr_data(&m_data[0])
+    , m_ptr_col_ind(&m_col_ind[0])
+{
+}
+
+
+template <class T>
+CSRMatrix<T>::CSRMatrix
+(
+    size_t rows,
+    size_t cols,
+    size_t nnz,
+    T *data,
+    size_t *col_ind,
+    size_t *row_ptr
+)
+    : m_rows(rows)
+    , m_cols(cols)
+    , m_data(data, data + nnz)
+    , m_col_ind(col_ind, col_ind + nnz)
+    , m_row_ptr(row_ptr, row_ptr + rows + 1)
+    , m_ptr_data(&m_data[0])
+{
+}
+
+
+template <class T>
+CSRMatrix<T>::CSRMatrix(Matrix<T> matrix)
+    : m_rows(matrix.nrows())
+    , m_cols(matrix.ncols())
+    , m_row_ptr(matrix.nrows() + 1, (T)0)
+    , m_ptr_col_ind(&m_col_ind[0])
+{
+    for (size_t i = 0; i < m_rows; ++i)
+    {
+        for (size_t j = 0; j < m_cols; ++j)
+        {
+            if (matrix(i, j) != (T)0)
+            {
+                m_data.push_back(matrix(i, j));
+                m_col_ind.push_back(j);
+                ++m_row_ptr[i + 1];
+            }
+        }
+    }
+    m_ptr_col_ind = &m_col_ind[0];
+    m_ptr_data = &m_data[0];
+    for (size_t i = 1; i <= m_rows; i++)
+    {
+        m_row_ptr[i] += m_row_ptr[i - 1];
+    }
+}
+
+
+template <class T>
+CSRMatrix<T>::CSRMatrix(const CSRMatrix<T>& other)
+    : m_rows(other.m_rows)
+    , m_cols(other.m_cols)
+    , m_data(other.m_data)
+    , m_col_ind(other.m_col_ind)
+    , m_row_ptr(other.m_row_ptr)
+    , m_ptr_data(&m_data[0])
+    , m_ptr_col_ind(&m_col_ind[0])
+{
+}
+
+
+template <class T>
+CSRMatrix<T>::CSRMatrix(CSRMatrix<T>&& other) noexcept
+    : m_rows(other.m_rows)
+    , m_cols(other.m_cols)
+    , m_data(std::move(other.m_data))
+    , m_col_ind(std::move(other.m_col_ind))
+    , m_row_ptr(std::move(other.m_row_ptr))
+    , m_ptr_data(&m_data[0])
+    , m_ptr_col_ind(&m_col_ind[0])
+{
+    other.m_ptr_data = nullptr;
+    other.m_ptr_col_ind = nullptr;
+}
+
+
+template <class T>
+CSRMatrix<T>& CSRMatrix<T>::operator=(const CSRMatrix<T>& other)
+{
+    if (this != &other)
+    {
+        m_rows = other.m_rows;
+        m_cols = other.m_cols;
+        m_data = other.m_data;
+        m_col_ind = other.m_col_ind;
+        m_row_ptr = other.m_row_ptr;
+        m_ptr_data = &m_data[0];
+        m_ptr_col_ind = &m_col_ind[0];
+    }
+    return *this;
+}
+
+
+template <class T>
+void CSRMatrix<T>::normalize()
+{
+    for (size_t i = 0; i < m_rows; ++i)
+    {
+        float norm = 0.0f;
+        for (size_t j = m_row_ptr[i]; j < m_row_ptr[i + 1]; ++j)
+        {
+            norm += m_data[j] * m_data[j];
+        }
+        norm = std::sqrt(norm);
+
+        // Avoid division by zero
+        if (norm > 0.0f)
+        {
+            for (size_t j = m_row_ptr[i]; j < m_row_ptr[i + 1]; ++j)
+            {
+                m_data[j] /= norm;
+            }
+        }
+    }
+
+}
 
 
 /*

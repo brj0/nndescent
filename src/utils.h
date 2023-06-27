@@ -28,6 +28,11 @@ typedef uint64_t RandomState[STATE_SIZE];
 
 
 /**
+ * @brief Prints random state to output stream.
+ */
+std::ostream& operator<<(std::ostream& out, const RandomState& state);
+
+/**
  * @brief Initialize the state of the random number generator.
  *
  * This function initializes the state of the random number generator
@@ -226,6 +231,37 @@ size_t count_if_not_equal(Iter first, Iter last, T value)
             ++cnt;
         }
     }
+    return cnt;
+}
+
+
+/**
+ * @brief Counts the number of elements in a range that are not equal to a
+ * given value.
+ */
+template<class IterCol, class IterData, class T>
+size_t sparse_count_if_not_equal
+(
+    IterCol first,
+    IterCol last,
+    IterData data,
+    T value
+)
+{
+    size_t cnt = 0;
+
+    // Pass through the index list
+    while (first != last)
+    {
+        if (*data != value)
+        {
+            ++cnt;
+        }
+
+        ++first;
+        ++data;
+    }
+
     return cnt;
 }
 

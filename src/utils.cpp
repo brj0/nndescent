@@ -6,6 +6,7 @@
 
 
 #include <chrono>
+
 #include "utils.h"
 
 
@@ -81,5 +82,15 @@ void log(std::string text, bool verbose)
     std::cout << std::put_time(localtime(&time), "%F %T ") << text << "\n";
 }
 
+
+std::ostream& operator<<(std::ostream& out, const RandomState& state)
+{
+    out << "(";
+    for (size_t i = 0; i < STATE_SIZE; ++i) {
+        out << state[i] << ", ";
+    }
+    out << ")";
+    return out;
+}
 
 } // namespace nndescent

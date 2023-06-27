@@ -38,13 +38,12 @@ module = Extension(
     ],
     # CXXFLAGS for debugging
     # extra_compile_args=[
-    # "-O0",
-    # "-Wall",
-    # "-Wextra",
-    # "-fno-inline-functions,"
-    # "-fno-stack-protector",
-    # "-g",
-    # "-pg",
+        # "-O0",
+        # "-Wall",
+        # "-Wextra",
+        # "-fno-stack-protector",
+        # "-g",
+        # "-pg",
     # ],
     extra_link_args=["-fopenmp"],
     language="c++",

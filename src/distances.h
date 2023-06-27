@@ -13,10 +13,12 @@
 #include <numeric>
 #include <stdexcept>
 #include <string>
+#include <map>
 #include <utility>
 #include <vector>
 
 #include "utils.h"
+#include "dtypes.h"
 
 
 namespace nndescent
@@ -27,6 +29,16 @@ const float PI = 3.14159265358979f;
 const float FLOAT_MAX = std::numeric_limits<float>::max();
 const float FLOAT_MIN = std::numeric_limits<float>::min();
 const float FLOAT_EPS = std::numeric_limits<float>::epsilon();
+
+
+// Types
+using Function1d = float (*)(float);
+using It = float*;
+using Metric = float (*)(It, It, It);
+using SparseMetric = float (*)(size_t*, size_t*, It, size_t*, size_t*, It);
+
+using Metric_p = float (*)(It, It, It, float);
+using SparseMetric_p = float (*)(size_t*, size_t*, It, size_t*, size_t*, It, float);
 
 
 /**
@@ -116,6 +128,249 @@ float sparse_squared_euclidean
 }
 
 
+template<class IterCol, class IterData>
+std::tuple<std::vector<size_t>, std::vector<float>> sparse_sum
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    std::vector<size_t> result_col_ind;
+    std::vector<float> result_data;
+
+    // Pass through both index lists
+    while(first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            result_col_ind.push_back(*first0);
+            result_data.push_back(*data0 + *data1);
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            result_col_ind.push_back(*first0);
+            result_data.push_back(*data0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            result_col_ind.push_back(*first1);
+            result_data.push_back(*data1);
+
+            ++first1;
+            ++data1;
+        }
+    }
+    // Pass over the tails
+    while(first0 != last0)
+    {
+        result_col_ind.push_back(*first0);
+        result_data.push_back(*data0);
+
+        ++first0;
+        ++data0;
+    }
+    while(first1 != last1)
+    {
+        result_col_ind.push_back(*first1);
+        result_data.push_back(*data1);
+
+        ++first1;
+        ++data1;
+    }
+    return std::make_tuple(result_col_ind, result_data);
+}
+
+
+/**
+ * @brief Sparse inner product.
+ */
+template<class IterCol0, class IterCol1, class IterData0, class IterData1>
+float sparse_inner_product
+(
+    IterCol0 first0,
+    IterCol0 last0,
+    IterData0 data0,
+    IterCol1 first1,
+    IterCol1 last1,
+    IterData1 data1
+)
+{
+    float result = 0.0f;
+    // Pass through both index lists
+    while(first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            result += (*data0) * (*data1);
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++first1;
+            ++data1;
+        }
+    }
+    return result;
+}
+
+
+template<class IterCol, class IterData>
+std::tuple<std::vector<size_t>, std::vector<float>> sparse_diff
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    std::vector<size_t> result_col_ind;
+    std::vector<float> result_data;
+
+    // Pass through both index lists
+    while(first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            result_col_ind.push_back(*first0);
+            result_data.push_back(*data0 - *data1);
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            result_col_ind.push_back(*first0);
+            result_data.push_back(*data0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            result_col_ind.push_back(*first1);
+            result_data.push_back(-*data1);
+
+            ++first1;
+            ++data1;
+        }
+    }
+    // Pass over the tails
+    while(first0 != last0)
+    {
+        result_col_ind.push_back(*first0);
+        result_data.push_back(*data0);
+
+        ++first0;
+        ++data0;
+    }
+    while(first1 != last1)
+    {
+        result_col_ind.push_back(*first1);
+        result_data.push_back(-*data1);
+
+        ++first1;
+        ++data1;
+    }
+    return std::make_tuple(result_col_ind, result_data);
+}
+
+
+template<class IterCol, class IterData>
+std::tuple<std::vector<size_t>, std::vector<float>> sparse_weighted_diff
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    float weight0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1,
+    float weight1
+)
+{
+    std::vector<size_t> result_col_ind;
+    std::vector<float> result_data;
+
+    // Pass through both index lists
+    while(first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            result_col_ind.push_back(*first0);
+            result_data.push_back(*data0/weight0 - *data1/weight1);
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            result_col_ind.push_back(*first0);
+            result_data.push_back(*data0/weight0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            result_col_ind.push_back(*first1);
+            result_data.push_back(-*data1/weight1);
+
+            ++first1;
+            ++data1;
+        }
+    }
+    // Pass over the tails
+    while(first0 != last0)
+    {
+        result_col_ind.push_back(*first0);
+        result_data.push_back(*data0/weight0);
+
+        ++first0;
+        ++data0;
+    }
+    while(first1 != last1)
+    {
+        result_col_ind.push_back(*first1);
+        result_data.push_back(-*data1/weight1);
+
+        ++first1;
+        ++data1;
+    }
+    return std::make_tuple(result_col_ind, result_data);
+}
+
+
 /**
  * @brief Standard euclidean distance.
  */
@@ -181,6 +436,69 @@ float manhattan(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
+template<class IterCol, class IterData>
+float sparse_manhattan
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    float result = 0.0f;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            result += std::abs(*data0 - *data1);
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            result += std::abs(*data0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            result += std::abs(*data1);
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        result += std::abs(*data0);
+
+        ++first0;
+        ++data0;
+    }
+
+    while (first1 != last1)
+    {
+        result += std::abs(*data1);
+
+        ++first1;
+        ++data1;
+    }
+
+    return result;
+}
+
+
 /**
  * @brief Chebyshev or l-infinity distance.
  *
@@ -198,6 +516,80 @@ float chebyshev(Iter0 first0, Iter0 last0, Iter1 first1)
         ++first0;
         ++first1;
     }
+    return result;
+}
+
+
+/**
+ * @brief Chebyshev or l-infinity distance.
+ *
+ * \f[
+ *     D(x, y) = \max_i |x_i - y_i|
+ * \f]
+ */
+template<class IterCol, class IterData>
+float sparse_chebyshev
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    float result = 0.0f;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            float diff = std::abs(*data0 - *data1);
+            result = std::max(result, diff);
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            float diff = std::abs(*data0);
+            result = std::max(result, diff);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            float diff = std::abs(*data1);
+            result = std::max(result, diff);
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        float diff = std::abs(*data0);
+        result = std::max(result, diff);
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        float diff = std::abs(*data1);
+        result = std::max(result, diff);
+
+        ++first1;
+        ++data1;
+    }
+
     return result;
 }
 
@@ -224,6 +616,85 @@ float minkowski(Iter0 first0, Iter0 last0, Iter1 first1, float p)
         ++first0;
         ++first1;
     }
+    return std::pow(result, 1.0f / p);
+}
+
+
+/**
+ * @brief Sparse Minkowski distance.
+ *
+ * \f[
+ *     D(x, y) = \left(\sum_i |x_i - y_i|^p\right)^{\frac{1}{p}}
+ * \f]
+ *
+ * This is a general distance. For p=1 it is equivalent to
+ * manhattan distance, for p=2 it is Euclidean distance, and
+ * for p=infinity it is Chebyshev distance. In general it is better
+ * to use the more specialised functions for those distances.
+ */
+template<class IterCol, class IterData>
+float sparse_minkowski
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1,
+    float p
+)
+{
+    float result = 0.0f;
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            float diff = std::abs(*data0 - *data1);
+            result = std::move(result) + std::pow(diff, p);
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            float diff = std::abs(*data0);
+            result = std::move(result) + std::pow(diff, p);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            float diff = std::abs(*data1);
+            result = std::move(result) + std::pow(diff, p);
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        float diff = std::abs(*data0);
+        result = std::move(result) + std::pow(diff, p);
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        float diff = std::abs(*data1);
+        result = std::move(result) + std::pow(diff, p);
+
+        ++first1;
+        ++data1;
+    }
+
     return std::pow(result, 1.0f / p);
 }
 
@@ -298,7 +769,6 @@ template<class Iter0, class Iter1>
 float hamming(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     int result = 0;
-    int size = last0 - first0;
     while (first0 != last0)
     {
         if (*first0 != *first1)
@@ -308,9 +778,76 @@ float hamming(Iter0 first0, Iter0 last0, Iter1 first1)
         ++first0;
         ++first1;
     }
-    return (float)(result) / size;
+    return result;
 }
 
+
+
+/**
+ * @brief Hamming distance.
+ */
+template<class IterCol, class IterData>
+float sparse_hamming
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    int result = 0;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            if (*data0 != *data1)
+            {
+                ++result;
+            }
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++result;
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++result;
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        ++result;
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        ++result;
+
+        ++first1;
+        ++data1;
+    }
+
+    return result;
+}
 
 /**
  * @brief Canberra distance.
@@ -332,6 +869,92 @@ float canberra(Iter0 first0, Iter0 last0, Iter1 first1)
     }
     return result;
 }
+
+
+/**
+ * @brief Sparse Canberra distance.
+ */
+template<class IterCol, class IterData>
+float sparse_canberra
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    float result = 0.0f;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            float denominator = std::abs(*data0) + std::abs(*data1);
+            if (denominator > 0)
+            {
+                result += std::abs(*data0 - *data1) / denominator;
+            }
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            float denominator = std::abs(*data0);
+            if (denominator > 0)
+            {
+                result += std::abs(*data0) / denominator;
+            }
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            float denominator = std::abs(*data1);
+            if (denominator > 0)
+            {
+                result += std::abs(*data1) / denominator;
+            }
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        float denominator = std::abs(*data0);
+        if (denominator > 0)
+        {
+            result += std::abs(*data0) / denominator;
+        }
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        float denominator = std::abs(*data1);
+        if (denominator > 0)
+        {
+            result += std::abs(*data1) / denominator;
+        }
+
+        ++first1;
+        ++data1;
+    }
+
+    return result;
+}
+
 
 
 /**
@@ -358,6 +981,74 @@ float bray_curtis(Iter0 first0, Iter0 last0, Iter1 first1)
 
 
 /**
+ * @brief Sparse Bray–Curtis dissimilarity.
+ */
+template<class IterCol0, class IterData0, class IterCol1, class IterData1>
+float sparse_bray_curtis(
+    IterCol0 first0,
+    IterCol0 last0,
+    IterData0 data0,
+    IterCol1 first1,
+    IterCol1 last1,
+    IterData1 data1
+)
+{
+    float numerator = 0.0f;
+    float denominator = 0.0f;
+
+    while (first0 != last0)
+    {
+        if (*first0 == *first1)
+        {
+            numerator += std::abs(*data0 - *data1);
+            denominator += std::abs(*data0 + *data1);
+            ++first0;
+            ++data0;
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            numerator += std::abs(*data0);
+            denominator += std::abs(*data0);
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            numerator += std::abs(*data1);
+            denominator += std::abs(*data1);
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        numerator += std::abs(*data0);
+        denominator += std::abs(*data0);
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        numerator += std::abs(*data1);
+        denominator += std::abs(*data1);
+        ++first1;
+        ++data1;
+    }
+
+    if (denominator > 0.0f)
+    {
+        return numerator / denominator;
+    }
+
+    return 0.0f;
+}
+
+
+/**
  * @brief Jaccard distance.
  */
 template<class Iter0, class Iter1>
@@ -378,7 +1069,79 @@ float jaccard(Iter0 first0, Iter0 last0, Iter1 first1)
     {
         return 0.0f;
     }
-    return (float)(num_non_zero - num_equal) / num_non_zero;
+    return static_cast<float>(num_non_zero - num_equal) / num_non_zero;
+}
+
+
+/**
+ * @brief Sparse jaccard distance.
+ */
+template<class IterCol, class IterData>
+float sparse_jaccard
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    int num_non_zero = 0;
+    int num_equal = 0;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            ++num_non_zero;
+            ++num_equal;
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++num_non_zero;
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++num_non_zero;
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        ++num_non_zero;
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        ++num_non_zero;
+
+        ++first1;
+        ++data1;
+    }
+
+    if (num_non_zero == 0)
+    {
+        return 0.0f;
+    }
+
+    return static_cast<float>(num_non_zero - num_equal) / num_non_zero;
 }
 
 
@@ -406,6 +1169,78 @@ float alternative_jaccard(Iter0 first0, Iter0 last0, Iter1 first1)
 
 
 /**
+ * @brief Sparse alternative jaccard distance.
+ */
+template<class IterCol, class IterData>
+float sparse_alternative_jaccard
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    int num_non_zero = 0;
+    int num_equal = 0;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            ++num_non_zero;
+            ++num_equal;
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++num_non_zero;
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++num_non_zero;
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        ++num_non_zero;
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        ++num_non_zero;
+
+        ++first1;
+        ++data1;
+    }
+    if (num_non_zero == 0)
+    {
+        return 0.0f;
+    }
+    return -std::log2(
+        static_cast<float>(num_equal) / num_non_zero
+    );
+}
+
+
+/**
  * @brief Correction function for Jaccard distance.
  */
 inline float correct_alternative_jaccard(float value)
@@ -421,14 +1256,76 @@ template<class Iter0, class Iter1>
 float matching(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     int num_not_equal = 0;
-    size_t size = last0 - first0;
     for (; first0 != last0; ++first0, ++first1)
     {
         bool first0_true = (*first0 != 0);
         bool first1_true = (*first1 != 0);
         num_not_equal = std::move(num_not_equal) + (first0_true != first1_true);
     }
-    return (float)num_not_equal / size;
+    return static_cast<float>(num_not_equal);
+}
+
+
+/**
+ * @brief Sparse matching.
+ */
+template<class IterCol, class IterData>
+float sparse_matching
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    int num_not_equal = 0;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++num_not_equal;
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++num_not_equal;
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        ++num_not_equal;
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        ++num_not_equal;
+
+        ++first1;
+        ++data1;
+    }
+
+    return static_cast<float>(num_not_equal);
 }
 
 
@@ -451,7 +1348,80 @@ float dice(Iter0 first0, Iter0 last0, Iter1 first1)
     {
         return 0.0f;
     }
-    return (float)num_not_equal / (2.0f * num_true_true + num_not_equal);
+    return static_cast<float>(num_not_equal)
+        / (2.0f * num_true_true + num_not_equal);
+}
+
+
+/**
+ * @brief Sparse dice.
+ */
+template<class IterCol, class IterData>
+float sparse_dice
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    int num_true_true = 0;
+    int num_not_equal = 0;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            ++num_true_true;
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++num_not_equal;
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++num_not_equal;
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        ++num_not_equal;
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        ++num_not_equal;
+
+        ++first1;
+        ++data1;
+    }
+
+    if (num_not_equal == 0)
+    {
+        return 0.0f;
+    }
+
+    return static_cast<float>(num_not_equal)
+        / (2.0f * num_true_true + num_not_equal);
 }
 
 
@@ -475,9 +1445,81 @@ float kulsinski(Iter0 first0, Iter0 last0, Iter1 first1)
     {
         return 0.0f;
     }
-    return (float)(num_not_equal - num_true_true + dim) / (
-        num_not_equal + dim
-    );
+    return static_cast<float>(num_not_equal - num_true_true + dim)
+        / (num_not_equal + dim);
+}
+
+
+/**
+ * @brief Sparse kulsinski dissimilarity.
+ */
+template<class IterCol, class IterData>
+float sparse_kulsinski
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1,
+    float dim
+)
+{
+    int num_true_true = 0;
+    int num_not_equal = 0;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            ++num_true_true;
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++num_not_equal;
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++num_not_equal;
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        ++num_not_equal;
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        ++num_not_equal;
+
+        ++first1;
+        ++data1;
+    }
+
+    if (num_not_equal == 0)
+    {
+        return 0.0f;
+    }
+
+    return static_cast<float>(num_not_equal - num_true_true + dim)
+        / (num_not_equal + dim);
 }
 
 
@@ -495,6 +1537,70 @@ float rogers_tanimoto(Iter0 first0, Iter0 last0, Iter1 first1)
         bool first1_true = (*first1 != 0);
         num_not_equal = std::move(num_not_equal) + (first0_true != first1_true);
     }
+    return (2.0f * num_not_equal) / (dim + num_not_equal);
+}
+
+
+/**
+ * @brief Sparse Rogers-Tanimoto dissimilarity.
+ */
+template<class IterCol, class IterData>
+float sparse_rogers_tanimoto
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1,
+    float dim
+)
+{
+    int num_not_equal = 0;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++num_not_equal;
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++num_not_equal;
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        ++num_not_equal;
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        ++num_not_equal;
+
+        ++first1;
+        ++data1;
+    }
+
     return (2.0f * num_not_equal) / (dim + num_not_equal);
 }
 
@@ -524,6 +1630,60 @@ float russellrao(Iter0 first0, Iter0 last0, Iter1 first1)
 
 
 /**
+ * @brief Sparse Russell-Rao dissimilarity.
+ */
+template<class IterCol, class IterData>
+float sparse_russellrao
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1,
+    float dim
+)
+{
+    int num_true_true = 0;
+
+    int first0_non0 = sparse_count_if_not_equal(first0, last0, data0, 0);
+    int first1_non0 = sparse_count_if_not_equal(first1, last1, data0, 0);
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            ++num_true_true;
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++first1;
+            ++data1;
+        }
+    }
+
+    if ((num_true_true == first0_non0) && (num_true_true == first1_non0))
+    {
+        return 0.0f;
+    }
+
+    return (float)(dim - num_true_true) / dim;
+}
+
+
+/**
  * @brief Sokal-Michener dissimilarity.
  */
 template<class Iter0, class Iter1>
@@ -537,6 +1697,70 @@ float sokal_michener(Iter0 first0, Iter0 last0, Iter1 first1)
         bool first1_true = (*first1 != 0);
         num_not_equal = std::move(num_not_equal) + (first0_true != first1_true);
     }
+    return (2.0f * num_not_equal) / (dim + num_not_equal);
+}
+
+
+/**
+ * @brief Sparse Sokal-Michener dissimilarity.
+ */
+template<class IterCol, class IterData>
+float sparse_sokal_michener(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1,
+    float dim
+)
+{
+    int num_not_equal = 0;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++num_not_equal;
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++num_not_equal;
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        ++num_not_equal;
+
+        ++first0;
+        ++data0;
+    }
+
+    while (first1 != last1)
+    {
+        ++num_not_equal;
+
+        ++first1;
+        ++data1;
+    }
+
     return (2.0f * num_not_equal) / (dim + num_not_equal);
 }
 
@@ -561,6 +1785,78 @@ float sokal_sneath(Iter0 first0, Iter0 last0, Iter1 first1)
         return 0.0f;
     }
     return (float)(num_not_equal) / (0.5f * num_true_true + num_not_equal);
+}
+
+
+/**
+ * @brief Sparse Sokal-Sneath dissimilarity.
+ */
+template<class IterCol, class IterData>
+float sparse_sokal_sneath(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    int num_true_true = 0;
+    int num_not_equal = 0;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            ++num_true_true;
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++num_not_equal;
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++num_not_equal;
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        ++num_not_equal;
+
+        ++first0;
+        ++data0;
+    }
+
+    while (first1 != last1)
+    {
+        ++num_not_equal;
+
+        ++first1;
+        ++data1;
+    }
+
+    if (num_not_equal == 0)
+    {
+        return 0.0f;
+    }
+
+    return static_cast<float>(num_not_equal)
+        / (0.5f * num_true_true + num_not_equal);
 }
 
 
@@ -610,6 +1906,81 @@ float yule(Iter0 first0, Iter0 last0, Iter1 first1)
 
 
 /**
+ * @brief Sparse Yule dissimilarity.
+ */
+template<class IterCol0, class IterData0, class IterCol1, class IterData1>
+float sparse_yule(
+    IterCol0 first0,
+    IterCol0 last0,
+    IterData0 data0,
+    IterCol1 first1,
+    IterCol1 last1,
+    IterData1 data1,
+    float dim
+)
+{
+    int num_true_true = 0;
+    int num_true_false = 0;
+    int num_false_true = 0;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            ++num_true_true;
+
+            ++first0;
+            ++data0;
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++num_true_false;
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++num_false_true;
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        ++num_true_false;
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        ++num_false_true;
+
+        ++first1;
+        ++data1;
+    }
+
+    int num_false_false = dim - num_true_true - num_true_false - num_false_true;
+
+    if ((num_true_false == 0) || (num_false_true == 0))
+    {
+        return 0.0f;
+    }
+
+    return (float)(2.0f * num_true_false * num_false_true) / (
+        num_true_true * num_false_false + num_true_false * num_false_true
+    );
+}
+
+
+/**
  * @brief Cosine similarity.
  */
 template<class Iter0, class Iter1>
@@ -632,6 +2003,83 @@ float cosine(Iter0 first0, Iter0 last0, Iter1 first1)
     {
         return 1.0f;
     }
+    return 1.0f - (result / std::sqrt(norm0 * norm1));
+}
+
+
+/**
+ * @brief Sparse cosine similarity.
+ */
+template<class IterCol, class IterData>
+float sparse_cosine
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    float result = 0.0f;
+    float norm0 = 0.0f;
+    float norm1 = 0.0f;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            result += (*data0) * (*data1);
+            norm0 += (*data0) * (*data0);
+            norm1 += (*data1) * (*data1);
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            norm0 += (*data0) * (*data0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            norm1 += (*data1) * (*data1);
+
+            ++first1;
+            ++data1;
+        }
+    }
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        norm0 += (*data0) * (*data0);
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        norm1 += (*data1) * (*data1);
+
+        ++first1;
+        ++data1;
+    }
+
+    if ((norm0 == 0.0f) && (norm1 == 0.0f))
+    {
+        return 0.0f;
+    }
+    else if ((norm0 == 0.0f) || (norm1 == 0.0f))
+    {
+        return 1.0f;
+    }
+
     return 1.0f - (result / std::sqrt(norm0 * norm1));
 }
 
@@ -669,6 +2117,88 @@ float alternative_cosine(Iter0 first0, Iter0 last0, Iter1 first1)
 
 
 /**
+ * @brief Sparse alternative cosine similarity.
+ */
+template<class IterCol, class IterData>
+float sparse_alternative_cosine
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    float result = 0.0f;
+    float norm0 = 0.0f;
+    float norm1 = 0.0f;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            result += (*data0) * (*data1);
+            norm0 += (*data0) * (*data0);
+            norm1 += (*data1) * (*data1);
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            norm0 += (*data0) * (*data0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            norm1 += (*data1) * (*data1);
+
+            ++first1;
+            ++data1;
+        }
+    }
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        norm0 += (*data0) * (*data0);
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        norm1 += (*data1) * (*data1);
+
+        ++first1;
+        ++data1;
+    }
+
+    if ((norm0 == 0.0f) && (norm1 == 0.0f))
+    {
+        return 0.0f;
+    }
+    else if ((norm0 == 0.0f) || (norm1 == 0.0f))
+    {
+        return FLOAT_MAX;
+    }
+    else if (result <= 0.0f)
+    {
+        return FLOAT_MAX;
+    }
+
+    result = std::sqrt(norm0 * norm1) / result;
+    return std::log2(result);
+}
+
+
+/**
  * @brief Dot.
  */
 template<class Iter0, class Iter1>
@@ -687,6 +2217,54 @@ float dot(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
+
+template<class IterCol, class IterData>
+float sparse_dot
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    float result = 0.0f;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            result += (*data0) * (*data1);
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++first1;
+            ++data1;
+        }
+    }
+
+    if (result <= 0.0f)
+    {
+        return 1.0f;
+    }
+
+    return 1.0f - result;
+}
+
+
 /**
  * @brief Alternative dot.
  */
@@ -698,6 +2276,55 @@ float alternative_dot(Iter0 first0, Iter0 last0, Iter1 first1)
     {
         result = std::move(result) + (*first0) * (*first1);
     }
+    if (result <= 0.0f)
+    {
+        return FLOAT_MAX;
+    }
+    return -std::log2(result);
+}
+
+
+/**
+ * @brief Sparse alternative dot.
+ */
+template<class IterCol, class IterData>
+float sparse_alternative_dot
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    float result = 0.0f;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            result += (*data0) * (*data1);
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            ++first1;
+            ++data1;
+        }
+    }
+
     if (result <= 0.0f)
     {
         return FLOAT_MAX;
@@ -747,6 +2374,98 @@ float tsss(Iter0 first0, Iter0 last0, Iter1 first1)
 
 
 /**
+ * @brief Sparse TS-SS Similarity.
+ */
+template<class IterCol0, class IterData0, class IterCol1, class IterData1>
+float sparse_tsss(
+    IterCol0 first0,
+    IterCol0 last0,
+    IterData0 data0,
+    IterCol1 first1,
+    IterCol1 last1,
+    IterData1 data1
+)
+{
+    float d_euc_squared = 0.0f;
+    float d_cos = 0.0f;
+    float norm0 = 0.0f;
+    float norm1 = 0.0f;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            float diff = (*data0) - (*data1);
+            d_euc_squared += diff * diff;
+            d_cos += (*data0) * (*data1);
+            norm0 += (*data0) * (*data0);
+            norm1 += (*data1) * (*data1);
+
+            ++first0;
+            ++data0;
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            float diff = (*data0);
+            d_euc_squared += diff * diff;
+            norm0 += (*data0) * (*data0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            float diff = *data1;
+            d_euc_squared += diff * diff;
+            norm1 += (*data1) * (*data1);
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        float diff = (*data0);
+        d_euc_squared += diff * diff;
+        norm0 += (*data0) * (*data0);
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        float diff = *data1;
+        d_euc_squared += diff * diff;
+        norm1 += (*data1) * (*data1);
+
+        ++first1;
+        ++data1;
+    }
+
+    norm0 = std::sqrt(norm0);
+    norm1 = std::sqrt(norm1);
+
+    float magnitude_difference = std::abs(norm0 - norm1);
+    d_cos /= (norm0 * norm1);
+
+    // Add 10 degrees as an "epsilon" to avoid problems.
+    float theta = std::acos(d_cos) + PI / 18.0f;
+
+    float sector = std::sqrt(d_euc_squared) + magnitude_difference;
+    sector = sector * sector * theta;
+
+    float triangle = norm0 * norm1 * std::sin(theta) / 2.0f;
+
+    return triangle * sector;
+}
+
+
+/**
  * @brief True angular.
  */
 template<class Iter0, class Iter1>
@@ -761,6 +2480,88 @@ float true_angular(Iter0 first0, Iter0 last0, Iter1 first1)
         norm0 = std::move(norm0) + (*first0) * (*first0);
         norm1 = std::move(norm1) + (*first1) * (*first1);
     }
+    if ((norm0 == 0.0f) && (norm1 == 0.0f))
+    {
+        return 0.0f;
+    }
+    else if ((norm0 == 0.0f) || (norm1 == 0.0f))
+    {
+        return FLOAT_MAX;
+    }
+    else if (result <= 0.0f)
+    {
+        return FLOAT_MAX;
+    }
+    result = result / std::sqrt(norm0 * norm1);
+    return 1.0f - std::acos(result) / PI;
+}
+
+
+/**
+ * @brief Sparse true angular.
+ */
+template<class IterCol, class IterData>
+float sparse_true_angular
+(
+    IterCol first0,
+    IterCol last0,
+    IterData data0,
+    IterCol first1,
+    IterCol last1,
+    IterData data1
+)
+{
+    float result = 0.0f;
+    float norm0 = 0.0f;
+    float norm1 = 0.0f;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            result += (*data0) * (*data1);
+            norm0 += (*data0) * (*data0);
+            norm1 += (*data1) * (*data1);
+
+            ++first0;
+            ++data0;
+
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            norm0 += (*data0) * (*data0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            norm1 += (*data1) * (*data1);
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        norm0 += (*data0) * (*data0);
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        norm1 += (*data1) * (*data1);
+
+        ++first1;
+        ++data1;
+    }
+
     if ((norm0 == 0.0f) && (norm1 == 0.0f))
     {
         return 0.0f;
@@ -830,6 +2631,136 @@ float correlation(Iter0 first0, Iter0 last0, Iter1 first1)
 
 
 /**
+ * @brief Sparse correlation.
+ */
+template<class IterCol0, class IterData0, class IterCol1, class IterData1>
+float sparse_correlation(
+    IterCol0 first0,
+    IterCol0 last0,
+    IterData0 data0,
+    IterCol1 first1,
+    IterCol1 last1,
+    IterData1 data1,
+    float dim
+)
+{
+    float mu0 = 0.0f;
+    float mu1 = 0.0f;
+    float norm0 = 0.0f;
+    float norm1 = 0.0f;
+    float dot_product = 0.0f;
+
+    // Calculate means
+    const IterCol0 _first0 = first0;
+    const IterData0 _data0 = data0;
+    for (; first0 != last0; ++first0, ++data0)
+    {
+        mu0 += *data0;
+    }
+    mu0 /= dim;
+    first0 = _first0;
+    data0 = _data0;
+
+    const IterCol1 _first1 = first1;
+    const IterData1 _data1 = data1;
+    for (; first1 != last1; ++first1, ++data1)
+    {
+        mu1 += *data1;
+    }
+    mu1 /= dim;
+    first1 = _first1;
+    data1 = _data1;
+
+    int both_indices_zero = dim;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        --both_indices_zero;
+        if (*first0 == *first1)
+        {
+            float shifted0 = *data0 - mu0;
+            float shifted1 = *data1 - mu1;
+            norm0 += shifted0 * shifted0;
+            norm1 += shifted1 * shifted1;
+            dot_product += shifted0 * shifted1;
+
+            ++first0;
+            ++data0;
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            float shifted0 = *data0 - mu0;
+            float shifted1 = -mu1;
+            norm0 += shifted0 * shifted0;
+            norm1 += shifted1 * shifted1;
+            dot_product += shifted0 * shifted1;
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            float shifted0 = -mu0;
+            float shifted1 = *data1 - mu1;
+            norm0 += shifted0 * shifted0;
+            norm1 += shifted1 * shifted1;
+            dot_product += shifted0 * shifted1;
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        --both_indices_zero;
+        float shifted0 = *data0 - mu0;
+        float shifted1 = -mu1;
+        norm0 += shifted0 * shifted0;
+        norm1 += shifted1 * shifted1;
+        dot_product += shifted0 * shifted1;
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        --both_indices_zero;
+        float shifted0 = -mu0;
+        float shifted1 = *data1 - mu1;
+        norm0 += shifted0 * shifted0;
+        norm1 += shifted1 * shifted1;
+        dot_product += shifted0 * shifted1;
+
+        ++first1;
+        ++data1;
+    }
+    // Correct for positions where both indices are 0
+    float shifted0 = -mu0;
+    float shifted1 = -mu1;
+    norm0 += both_indices_zero * shifted0 * shifted0;
+    norm1 += both_indices_zero * shifted1 * shifted1;
+    dot_product += both_indices_zero * shifted0 * shifted1;
+
+
+    if ((norm0 == 0.0f) && (norm1 == 0.0f))
+    {
+        return 0.0f;
+    }
+    else if (dot_product == 0.0f)
+    {
+        return 1.0f;
+    }
+
+    return 1.0f - dot_product / std::sqrt(norm0 * norm1);
+}
+
+
+/**
  * @brief Hellinger.
  */
 template<class Iter0, class Iter1>
@@ -845,6 +2776,84 @@ float hellinger(Iter0 first0, Iter0 last0, Iter1 first1)
 
         l1_norm0 = std::move(l1_norm0) + *first0;
         l1_norm1 = std::move(l1_norm1) + *first1;
+    }
+
+    if ((l1_norm0 == 0.0f) && (l1_norm1 == 0.0f))
+    {
+        return 0.0f;
+    }
+    else if ((l1_norm0 == 0.0f) || (l1_norm1 == 0.0f))
+    {
+        return 1.0f;
+    }
+
+    return std::sqrt(1.0f - result / std::sqrt(l1_norm0 * l1_norm1));
+}
+
+
+/**
+ * @brief Sparse Hellinger.
+ */
+template<class IterCol0, class IterData0, class IterCol1, class IterData1>
+float sparse_hellinger(
+    IterCol0 first0,
+    IterCol0 last0,
+    IterData0 data0,
+    IterCol1 first1,
+    IterCol1 last1,
+    IterData1 data1
+)
+{
+    float result = 0.0f;
+    float l1_norm0 = 0.0f;
+    float l1_norm1 = 0.0f;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            float value = std::sqrt((*data0) * (*data1));
+            result += value;
+
+            l1_norm0 += (*data0);
+            l1_norm1 += (*data1);
+
+            ++first0;
+            ++data0;
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            l1_norm0 += (*data0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            l1_norm1 += (*data1);
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        l1_norm0 += (*data0);
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        l1_norm1 += (*data1);
+
+        ++first1;
+        ++data1;
     }
 
     if ((l1_norm0 == 0.0f) && (l1_norm1 == 0.0f))
@@ -894,6 +2903,90 @@ float alternative_hellinger(Iter0 first0, Iter0 last0, Iter1 first1)
     result = std::sqrt(l1_norm0 * l1_norm1) / result;
     return std::log2(result);
 }
+
+
+/**
+ * @brief Sparse alternative Hellinger.
+ */
+template<class IterCol0, class IterData0, class IterCol1, class IterData1>
+float sparse_alternative_hellinger(
+    IterCol0 first0,
+    IterCol0 last0,
+    IterData0 data0,
+    IterCol1 first1,
+    IterCol1 last1,
+    IterData1 data1
+)
+{
+    float result = 0.0f;
+    float l1_norm0 = 0.0f;
+    float l1_norm1 = 0.0f;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            float value = std::sqrt((*data0) * (*data1));
+            result += value;
+
+            l1_norm0 += (*data0);
+            l1_norm1 += (*data1);
+
+            ++first0;
+            ++data0;
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            l1_norm0 += (*data0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            l1_norm1 += (*data1);
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        l1_norm0 += (*data0);
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        l1_norm1 += (*data1);
+
+        ++first1;
+        ++data1;
+    }
+
+    if ((l1_norm0 == 0.0f) && (l1_norm1 == 0.0f))
+    {
+        return 0.0f;
+    }
+    else if ((l1_norm0 == 0.0f) || (l1_norm1 == 0.0f))
+    {
+        return FLOAT_MAX;
+    }
+    else if (result <= 0.0f)
+    {
+        return FLOAT_MAX;
+    }
+
+    result = std::sqrt(l1_norm0 * l1_norm1) / result;
+    return std::log2(result);
+}
+
 
 
 /**
@@ -1051,6 +3144,173 @@ float jensen_shannon_divergence(Iter0 first0, Iter0 last0, Iter1 first1)
 
     return result;
 }
+
+
+/**
+ * @brief Sparse Jensen Shannon divergence.
+ */
+template<class IterCol0, class IterData0, class IterCol1, class IterData1>
+float sparse_jensen_shannon_divergence(
+    IterCol0 first0,
+    IterCol0 last0,
+    IterData0 data0,
+    IterCol1 first1,
+    IterCol1 last1,
+    IterData1 data1,
+    float dim
+)
+{
+    float result = 0.0f;
+    float l1_norm0 = 0.0f;
+    float l1_norm1 = 0.0f;
+
+    const IterCol0 _first0 = first0;
+    const IterData0 _data0 = data0;
+    const IterCol1 _first1 = first1;
+    const IterData1 _data1 = data1;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            l1_norm0 += (*data0);
+            l1_norm1 += (*data1);
+
+            ++first0;
+            ++data0;
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            l1_norm0 += (*data0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            l1_norm1 += (*data1);
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    //Pass over the tails
+    while (first0 != last0)
+    {
+        l1_norm0 += (*data0);
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        l1_norm1 += (*data1);
+
+        ++first1;
+        ++data1;
+    }
+
+    first0 = _first0;
+    data0 = _data0;
+    first1 = _first1;
+    data1 = _data1;
+
+    l1_norm0 += FLOAT_EPS * dim;
+    l1_norm1 += FLOAT_EPS * dim;
+
+    int both_indices_zero = dim;
+
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
+    {
+        --both_indices_zero;
+        if (*first0 == *first1)
+        {
+            float pdf0 = ((*data0) + FLOAT_EPS) / l1_norm0;
+            float pdf1 = ((*data1) + FLOAT_EPS) / l1_norm1;
+            float m = 0.5f * (pdf0 + pdf1);
+
+            result += 0.5f * (
+                pdf0 * std::log(pdf0 / m) + pdf1 * std::log(pdf1 / m)
+            );
+
+            ++first0;
+            ++data0;
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            float pdf0 = ((*data0) + FLOAT_EPS) / l1_norm0;
+            float pdf1 = FLOAT_EPS / l1_norm1;
+            float m = 0.5f * (pdf0 + pdf1);
+
+            result += 0.5f * (
+                pdf0 * std::log(pdf0 / m) + pdf1 * std::log(pdf1 / m)
+            );
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            float pdf0 = FLOAT_EPS / l1_norm0;
+            float pdf1 = ((*data1) + FLOAT_EPS) / l1_norm1;
+            float m = 0.5f * (pdf0 + pdf1);
+
+            result += 0.5f * (
+                pdf0 * std::log(pdf0 / m) + pdf1 * std::log(pdf1 / m)
+            );
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    //Pass over the tails
+    while (first0 != last0)
+    {
+        --both_indices_zero;
+        float pdf0 = ((*data0) + FLOAT_EPS) / l1_norm0;
+        float pdf1 = FLOAT_EPS / l1_norm1;
+        float m = 0.5f * (pdf0 + pdf1);
+
+        result += 0.5f * (
+            pdf0 * std::log(pdf0 / m) + pdf1 * std::log(pdf1 / m)
+        );
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        --both_indices_zero;
+        float pdf0 = FLOAT_EPS / l1_norm0;
+        float pdf1 = ((*data1) + FLOAT_EPS) / l1_norm1;
+        float m = 0.5f * (pdf0 + pdf1);
+
+        result += 0.5f * (
+            pdf0 * std::log(pdf0 / m) + pdf1 * std::log(pdf1 / m)
+        );
+
+        ++first1;
+        ++data1;
+    }
+    float pdf0 = FLOAT_EPS / l1_norm0;
+    float pdf1 = FLOAT_EPS / l1_norm1;
+    float m = 0.5f * (pdf0 + pdf1);
+
+    result += both_indices_zero * 0.5f * (
+        pdf0 * std::log(pdf0 / m) + pdf1 * std::log(pdf1 / m)
+    );
+
+    return result;
+}
+
 
 
 /**
@@ -1231,6 +3491,468 @@ float symmetric_kl_divergence(Iter0 first0, Iter0 last0, Iter1 first1)
 
     return result;
 }
+
+
+/**
+ * @brief Sparse symmetric Kullback-Leibler divergence.
+ */
+template<class IterCol0, class IterData0, class IterCol1, class IterData1>
+float sparse_symmetric_kl_divergence(
+    IterCol0 first0,
+    IterCol0 last0,
+    IterData0 data0,
+    IterCol1 first1,
+    IterCol1 last1,
+    IterData1 data1,
+    float dim
+)
+{
+    float result = 0.0f;
+    float l1_norm0 = 0.0f;
+    float l1_norm1 = 0.0f;
+
+    // Pass through both index lists
+    const IterCol0 _first0 = first0;
+    const IterData0 _data0 = data0;
+    const IterCol1 _first1 = first1;
+    const IterData1 _data1 = data1;
+
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            l1_norm0 += (*data0);
+            l1_norm1 += (*data1);
+
+            ++first0;
+            ++data0;
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            l1_norm0 += (*data0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            l1_norm1 += (*data1);
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        l1_norm0 += (*data0);
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        l1_norm1 += (*data1);
+
+        ++first1;
+        ++data1;
+    }
+
+    l1_norm0 += FLOAT_EPS * dim;
+    l1_norm1 += FLOAT_EPS * dim;
+
+    first0 = _first0;
+    data0 = _data0;
+    first1 = _first1;
+    data1 = _data1;
+
+    while (first0 != last0 && first1 != last1)
+    {
+        if (*first0 == *first1)
+        {
+            float pdf0 = ((*data0) + FLOAT_EPS) / l1_norm0;
+            float pdf1 = ((*data1) + FLOAT_EPS) / l1_norm1;
+
+            result += pdf0 * std::log(pdf0 / pdf1) + pdf1 * std::log(pdf1 / pdf0);
+
+            ++first0;
+            ++data0;
+            ++first1;
+            ++data1;
+        }
+        else if (*first0 < *first1)
+        {
+            float pdf0 = ((*data0) + FLOAT_EPS) / l1_norm0;
+            float pdf1 = FLOAT_EPS / l1_norm1;
+
+            result += pdf0 * std::log(pdf0 / pdf1) + pdf1 * std::log(pdf1 / pdf0);
+
+            ++first0;
+            ++data0;
+        }
+        else
+        {
+            float pdf0 = FLOAT_EPS / l1_norm0;
+            float pdf1 = ((*data1) + FLOAT_EPS) / l1_norm1;
+
+            result += pdf0 * std::log(pdf0 / pdf1) + pdf1 * std::log(pdf1 / pdf0);
+
+            ++first1;
+            ++data1;
+        }
+    }
+
+    // Pass over the tails
+    while (first0 != last0)
+    {
+        float pdf0 = ((*data0) + FLOAT_EPS) / l1_norm0;
+        float pdf1 = FLOAT_EPS / l1_norm1;
+
+        result += pdf0 * std::log(pdf0 / pdf1) + pdf1 * std::log(pdf1 / pdf0);
+
+        ++first0;
+        ++data0;
+    }
+    while (first1 != last1)
+    {
+        float pdf0 = FLOAT_EPS / l1_norm0;
+        float pdf1 = ((*data1) + FLOAT_EPS) / l1_norm1;
+
+        result += pdf0 * std::log(pdf0 / pdf1) + pdf1 * std::log(pdf1 / pdf0);
+
+        ++first1;
+        ++data1;
+    }
+
+    return result;
+}
+
+
+class DistanceFunction
+{
+private:
+public:
+    Metric dense_metric;
+    SparseMetric sparse_metric;
+
+    Metric_p dense_metric_p;
+    SparseMetric_p sparse_metric_p;
+    float p_metric=1.0f;
+
+    Function1d correction;
+    DistanceFunction()
+        : dense_metric()
+        , sparse_metric()
+        , dense_metric_p()
+        , sparse_metric_p()
+        , correction(identity)
+    {
+    }
+    DistanceFunction
+    (
+        Metric dense,
+        SparseMetric sparse,
+        Function1d corr=identity
+    )
+        : dense_metric(dense)
+        , sparse_metric(sparse)
+        , correction(corr)
+    {
+    }
+
+    DistanceFunction
+    (
+        Metric_p dense,
+        SparseMetric_p sparse,
+        float p,
+        Function1d corr=identity
+    )
+        : dense_metric_p(dense)
+        , sparse_metric_p(sparse)
+        , p_metric(p)
+        , correction(corr)
+    {
+    }
+
+    DistanceFunction
+    (
+        Metric_p dense,
+        SparseMetric_p sparse,
+        Function1d corr=identity
+    )
+        : dense_metric_p(dense)
+        , sparse_metric_p(sparse)
+        , correction(corr)
+    {
+    }
+
+    DistanceFunction
+    (
+        Metric dense,
+        SparseMetric_p sparse,
+        float p,
+        Function1d corr=identity
+    )
+        : dense_metric(dense)
+        , sparse_metric_p(sparse)
+        , p_metric(p)
+        , correction(corr)
+    {
+    }
+
+    virtual inline float operator()
+    (
+        const Matrix<float> &data,
+        int idx0,
+        int idx1
+    ) const
+    {
+        return dense_metric(
+            data.begin(idx0), data.end(idx0), data.begin(idx1)
+        );
+    }
+
+    virtual inline float operator()
+    (
+        const Matrix<float> &data,
+        int idx_d,
+        const Matrix<float> &query_data,
+        int idx_q
+    ) const
+    {
+        return dense_metric(
+            data.begin(idx_d), data.end(idx_d), query_data.begin(idx_q)
+        );
+    }
+
+    virtual inline float operator()
+    (
+        const CSRMatrix<float> &data,
+        int idx0,
+        int idx1
+    ) const
+    {
+        return sparse_metric(
+            data.begin_col(idx0),
+            data.end_col(idx0),
+            data.begin_data(idx0),
+            data.begin_col(idx1),
+            data.end_col(idx1),
+            data.begin_data(idx1)
+        );
+    }
+
+    virtual inline float operator()
+    (
+        const CSRMatrix<float> &data,
+        int idx_d,
+        const CSRMatrix<float> &query_data,
+        int idx_q
+    ) const
+    {
+        return sparse_metric(
+            data.begin_col(idx_d),
+            data.end_col(idx_d),
+            data.begin_data(idx_d),
+            query_data.begin_col(idx_q),
+            query_data.end_col(idx_q),
+            query_data.begin_data(idx_q)
+        );
+    }
+};
+
+
+class DistanceFunction_p : public DistanceFunction
+{
+private:
+public:
+    using DistanceFunction::DistanceFunction;
+
+    inline float operator()
+    (
+        const Matrix<float> &data,
+        int idx0,
+        int idx1
+    ) const override
+    {
+        return dense_metric_p(
+            data.begin(idx0), data.end(idx0), data.begin(idx1), p_metric
+        );
+    }
+
+    inline float operator()
+    (
+        const Matrix<float> &data,
+        int idx_d,
+        const Matrix<float> &query_data,
+        int idx_q
+    ) const override
+    {
+        return dense_metric_p(
+            data.begin(idx_d), data.end(idx_d), query_data.begin(idx_q), p_metric
+        );
+    }
+
+    inline float operator()
+    (
+        const CSRMatrix<float> &data,
+        int idx0,
+        int idx1
+    ) const override
+    {
+        return sparse_metric_p(
+            data.begin_col(idx0),
+            data.end_col(idx0),
+            data.begin_data(idx0),
+            data.begin_col(idx1),
+            data.end_col(idx1),
+            data.begin_data(idx1),
+            p_metric
+        );
+    }
+
+    inline float operator()
+    (
+        const CSRMatrix<float> &data,
+        int idx_d,
+        const CSRMatrix<float> &query_data,
+        int idx_q
+    ) const override
+    {
+        return sparse_metric_p(
+            data.begin_col(idx_d),
+            data.end_col(idx_d),
+            data.begin_data(idx_d),
+            query_data.begin_col(idx_q),
+            query_data.end_col(idx_q),
+            query_data.begin_data(idx_q),
+            p_metric
+        );
+    }
+};
+
+
+class DistanceFunction__p : public DistanceFunction
+{
+private:
+public:
+    using DistanceFunction::DistanceFunction;
+
+    inline float operator()
+    (
+        const CSRMatrix<float> &data,
+        int idx0,
+        int idx1
+    ) const override
+    {
+        return sparse_metric_p(
+            data.begin_col(idx0),
+            data.end_col(idx0),
+            data.begin_data(idx0),
+            data.begin_col(idx1),
+            data.end_col(idx1),
+            data.begin_data(idx1),
+            p_metric
+        );
+    }
+
+    inline float operator()
+    (
+        const CSRMatrix<float> &data,
+        int idx_d,
+        const CSRMatrix<float> &query_data,
+        int idx_q
+    ) const override
+    {
+        return sparse_metric_p(
+            data.begin_col(idx_d),
+            data.end_col(idx_d),
+            data.begin_data(idx_d),
+            query_data.begin_col(idx_q),
+            query_data.end_col(idx_q),
+            query_data.begin_data(idx_q),
+            p_metric
+        );
+    }
+};
+
+
+class Distance
+{
+public:
+    DistanceFunction df;
+    DistanceFunction_p dfp;
+    DistanceFunction__p df_p;
+    DistanceFunction* ptr;
+
+    Distance() {}
+
+    Distance(DistanceFunction d)
+        : df(d)
+        , ptr(&df)
+    {
+    }
+
+    Distance(DistanceFunction_p d)
+        : dfp(d)
+        , ptr(&dfp)
+    {
+    }
+    Distance(DistanceFunction__p d)
+        : df_p(d)
+        , ptr(&df_p)
+    {
+    }
+
+    DistanceFunction& get_fct()
+    {
+        return *ptr;
+    }
+
+    Distance(const Distance& other)
+        : df(other.df)
+        , dfp(other.dfp)
+        , df_p(other.df_p)
+    {
+        this->set_ptr(other);
+    }
+
+    Distance& operator=(const Distance& other)
+    {
+        if (this == &other)
+        {
+            return *this;
+        }
+
+        df = other.df;
+        dfp = other.dfp;
+        df_p = other.df_p;
+        this->set_ptr(other);
+
+
+        return *this;
+    }
+
+    void set_ptr(const Distance& other)
+    {
+        if (other.ptr == &other.df)
+        {
+            ptr = &df;
+        }
+        else if (other.ptr == &other.dfp)
+        {
+            ptr = &dfp;
+        }
+        else
+        {
+            ptr = &df_p;
+        }
+    }
+
+};
 
 
 } // namespace nndescent

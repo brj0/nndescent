@@ -67,11 +67,26 @@ const int MAX_INT = std::numeric_limits<int>::max();
 const int DEFAULT_K = 10;
 const float DEFAULT_EPSILON = 0.1f;
 
-// Types
-using It = float*;
-using Metric = float (*)(It, It, It);
-using SparseMetric = float (*)(size_t*, size_t*, It, size_t*, size_t*, It);
-using Function1d = float (*)(float);
+
+/*
+ * @brief Corrects distances using a distance correction function.
+ *
+ * Some metrics have alternative forms that allow for faster calculations.
+ * However, these alternative forms may produce slightly different distances
+ * compared to the original metric. This function applies a distance correction
+ * by using the provided distance correction function to adjust the distances
+ * calculated using the alternative form.
+ *
+ * @param distance_correction The distance correction function to be applied.
+ * @param in The input matrix of distances to be corrected.
+ * @param out The output matrix of corrected distances.
+ */
+void correct_distances
+(
+    Function1d distance_correction,
+    Matrix<float> &in,
+    Matrix<float> &out
+);
 
 
 /**
@@ -136,6 +151,7 @@ float recall_accuracy(Matrix<int> apx, Matrix<int> ect);
 struct Parms
 {
     std::string metric="euclidean";
+    float p_metric=1.0f;
     int n_neighbors=30;
     int n_trees=NONE;
     int leaf_size=NONE;
@@ -195,16 +211,28 @@ private:
      */
     std::vector<RPTree> forest;
 
+
+
     /*
      * The distance metric used for computing distances between points.
      */
-    Metric dist;
+    // DistanceFunction* dist_fct;
+    Distance dist;
+
+    /*
+     * The variables the distance metric 'dist_fct' points to. Some metric
+     * distances are modifiable via parameters, therefore multiple types are
+     * necessary.
+     */
+    DistanceFunction _dist_DF;
+    DistanceFunction_p _dist_DFp;
+    DistanceFunction__p _dist_DF_p;
 
     /*
      * The function used for distance correction if an alternative metric is
      * used.
      */
-    Function1d distance_correction=NULL;
+    Function1d distance_correction=nullptr;
 
     /*
      * The search tree used for nearest neighbor queries.
@@ -220,6 +248,8 @@ private:
      * Flag indicating whether angular trees are used.
      */
     bool angular_trees;
+
+    bool is_sparse;
 
     /*
      * Private member function to set 'dist' and 'distance_correction' from the
@@ -245,8 +275,8 @@ public:
      *     - 'hamming'
      *     - 'hellinger'
      *
-     * Implemented but with limited functionality (possibly due to float
-     * comparison; currently only float input data is possible).
+     * Implemented but with limited functionality (currently only float input
+     * data is possible; CAVE float comparison).
      *     - 'dice'
      *     - 'jaccard'
      *     - 'kulsinski'
@@ -256,15 +286,14 @@ public:
      *     - 'sokalmichener'
      *     - 'sokalsneath'
      *     - 'yule'
-     *
-     * Not supported yet:
-     *     - 'mahalanobis'
-     *     - 'minkowski'
-     *     - 'wminkowski'
-     *     - 'sinkhorn'
-     *     - 'wasserstein-1d'
      */
     std::string metric;
+
+
+    /**
+     * Argument to pass on to the metric
+     */
+    float p_metric;
 
 
     /**
@@ -454,6 +483,8 @@ public:
     void start();
 
 
+    void start_sparse();
+
     /**
      * @brief Perform k-nearest neighbors search using brute force for
      * debugging purposes.
@@ -465,7 +496,8 @@ public:
      * algorithm.
      *
      */
-    void start_brute_force();
+    template<class MatrixType>
+    void start_brute_force(const MatrixType &mtx_data);
 
 
     /**
@@ -494,8 +526,9 @@ public:
      * Values should be in the range 0.0 to 0.5, but typically not exceed 0.3
      * without good reason (default: 0.1).
      */
+    template<class MatrixType>
     void query(
-        const Matrix<float> &input_query_data,
+        const MatrixType &input_query_data,
         int k=DEFAULT_K,
         float epsilon=DEFAULT_EPSILON
     );
@@ -518,7 +551,8 @@ public:
      *
      * @param k The number of nearest neighbors to be returned.
      */
-    void query_brute_force(const Matrix<float> &query_data, int k);
+    template<class MatrixType>
+    void query_brute_force(const MatrixType &query_data, int k);
 
 
     /*
@@ -526,7 +560,148 @@ public:
      * stream.
      */
     friend std::ostream& operator<<(std::ostream &out, const NNDescent &nnd);
+
+
+    template<class MatrixType>
+    MatrixType* get_data();
 };
+
+
+template<class MatrixType>
+void NNDescent::query_brute_force(const MatrixType &query_data, int k)
+{
+    MatrixType *data_ptr = this->get_data<MatrixType>();
+    HeapList<float> query_nn(query_data.nrows(), k, FLOAT_MAX);
+    ProgressBar bar(query_data.nrows(), verbose);
+    #pragma omp parallel for num_threads(n_threads)
+    for (size_t idx_q = 0; idx_q < query_data.nrows(); ++idx_q)
+    {
+        bar.show();
+        for (size_t idx_d = 0; idx_d < data_size; ++idx_d)
+        {
+            float d = (dist.get_fct())((*data_ptr), idx_d, query_data, idx_q);
+            // float d = (*dist_fct)((*data_ptr), idx_d, query_data, idx_q);
+            query_nn.checked_push(idx_q, idx_d, d);
+        }
+    }
+    query_nn.heapsort();
+    query_indices = query_nn.indices;
+    query_distances = query_nn.keys;
+    correct_distances(
+        distance_correction, query_distances, query_distances
+    );
+}
+
+
+template<class MatrixType>
+void NNDescent::query
+(
+    const MatrixType &input_query_data,
+    int k,
+    float epsilon
+)
+{
+    MatrixType *data_ptr = this->get_data<MatrixType>();
+    // Make shure original data cannot be modified.
+    MatrixType query_data = input_query_data;
+    if (metric == "dot")
+    {
+        query_data.deep_copy();
+        query_data.normalize();
+    }
+
+    if (algorithm == "bf")
+    {
+        query_brute_force(query_data, k);
+        return;
+    }
+    // Check if search_graph already prepared.
+    if (search_graph.nheaps() == 0)
+    {
+        prepare();
+    }
+    HeapList<float> query_nn(query_data.nrows(), k, FLOAT_MAX);
+    for (size_t i = 0; i < query_nn.nheaps(); ++i)
+    {
+
+        // Initialization
+        Heap<Candidate> search_candidates;
+        std::vector<int> visited(data_size, 0);
+        std::vector<int> initial_candidates = search_tree.get_leaf(
+            // query_data.begin(i), rng_state
+            query_data, i, rng_state
+        );
+
+        for (auto const &idx : initial_candidates)
+        {
+            float d = (dist.get_fct())((*data_ptr), idx, query_data, i);
+            // float d = (*dist_fct)((*data_ptr), idx, query_data, i);
+            // Don't need to check as indices are guaranteed to be different.
+            // TODO implement push without check.
+            query_nn.checked_push(i, idx, d);
+            visited[idx] = 1;
+            search_candidates.push({idx, d});
+        }
+        int n_random_samples = k - initial_candidates.size();
+        for (int j = 0; j < n_random_samples; ++j)
+        {
+            int idx = rand_int(rng_state) % data_size;
+            if (!visited[idx])
+            {
+                float d = (dist.get_fct())((*data_ptr), idx, query_data, i);
+                // float d = (*dist_fct)((*data_ptr), idx, query_data, i);
+                query_nn.checked_push(i, idx, d);
+                visited[idx] = 1;
+                search_candidates.push({idx, d});
+            }
+        }
+
+        // Search
+        Candidate candidate = search_candidates.pop();
+        float distance_bound = (1.0f + epsilon) * query_nn.max(i);
+        while (candidate.key < distance_bound)
+        {
+            for (size_t j = 0; j < search_graph.nnodes(); ++j)
+            {
+                int idx = search_graph.indices(candidate.idx, j);
+                if (idx == NONE)
+                {
+                    break;
+                }
+                if (visited[idx])
+                {
+                    continue;
+                }
+                visited[idx] = 1;
+                float d = (dist.get_fct())((*data_ptr), idx, query_data, i);
+                // float d = (*dist_fct)((*data_ptr), idx, query_data, i);
+                if (d < distance_bound)
+                {
+                    query_nn.checked_push(i, idx, d);
+                    search_candidates.push({idx, d});
+
+                    // Update bound
+                    distance_bound = (1.0f + epsilon) * query_nn.max(i);
+                }
+            }
+            // Find new nearest candidate point.
+            if (search_candidates.empty())
+            {
+                break;
+            }
+            else
+            {
+                candidate = search_candidates.pop();
+            }
+        }
+    }
+    query_nn.heapsort();
+    query_indices = query_nn.indices;
+    query_distances = query_nn.keys;
+    correct_distances(
+        distance_correction, query_distances, query_distances
+    );
+}
 
 
 } // namespace nndescent

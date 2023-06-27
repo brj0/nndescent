@@ -1,6 +1,5 @@
 """
- Olivetty faces is a 400x4096 image dataset useful for quick checking
- and debugging.
+Simple toy dataset.
 """
 
 import os
@@ -9,6 +8,7 @@ from sklearn.datasets import fetch_olivetti_faces
 from sklearn.model_selection import train_test_split
 import nndescent
 import numpy as np
+import scipy.sparse
 
 DATA_PATH = os.path.expanduser("~/Downloads/nndescent_test_data")
 
@@ -45,12 +45,15 @@ data, query_data = train_test_split(
     olivetti_faces, test_size=0.2, random_state=1234
 )
 
+# Convert to sparse format
+csr_data = scipy.sparse.csr_matrix(data)
+csr_query_data = scipy.sparse.csr_matrix(query_data)
 
 # NEAREST NEIGHBORS - TRAINING
 
 # Run NND algorithm.
 n_neighbors = 30
-nnd = nndescent.NNDescent(data, n_neighbors=n_neighbors)
+nnd = nndescent.NNDescent(csr_data, n_neighbors=n_neighbors)
 
 # Get result
 nn_indices, nn_distances = nnd.neighbor_graph
@@ -58,13 +61,12 @@ nn_indices, nn_distances = nnd.neighbor_graph
 # Calculate exact nearest neighbors for comparison.
 nn_indices_ect, nn_distances_ect = nn_brute_force(data, data, n_neighbors)
 
-print("\nInput data\n", data)
+print("\nInput csr_data\n", csr_data)
 print("\nApproximate nearest neighbors\n", nn_indices)
 print("\nExact nearest neighbors\n", nn_indices_ect)
 print("\nApproximate nearest neighbors distances\n", nn_distances)
 print("\nExact nearest neighbors distances\n", nn_distances_ect)
 print("\nAccuracy of nndescent algorithm compared with exact values (train):")
-
 accuracy(nn_indices, nn_indices_ect)
 
 
@@ -72,13 +74,13 @@ accuracy(nn_indices, nn_indices_ect)
 
 # Calculate nearest neighbors for each query point.
 k_query = 10
-nn_query_indices, nn_query_distances = nnd.query(query_data, k=k_query)
+nn_query_indices, nn_query_distances = nnd.query(csr_query_data, k=k_query)
 
 # Calculate exact nearest neighbors for comparison.
 nn_query_indices_ect, nn_query_distances_ect = nn_brute_force(data, query_data, k_query)
 
 
-print("\nInput query data\n", query_data)
+print("\nInput query csr_data\n", csr_data)
 print("\nApproximate nearest neighbors of query points\n", nn_query_indices)
 print("\nExact nearest neighbors of query points\n", nn_query_indices_ect)
 print("\nApproximate nearest neighbors query distances\n", nn_query_distances)
