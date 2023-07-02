@@ -7,6 +7,7 @@ project(nndescent
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS
+    # "-Wall -g -pg -Ofast -DALL_METRICS -march=native -flto -fno-math-errno -fopenmp -pg")
     "-Wall -g -pg -Ofast -march=native -flto -fno-math-errno -fopenmp -pg")
 
 # Collect source files
@@ -27,6 +28,9 @@ target_link_libraries(simple PRIVATE nndescent)
 
 add_executable(faces tests/faces.cpp)
 target_link_libraries(faces PRIVATE nndescent)
+
+add_executable(sparse_faces tests/sparse_faces.cpp)
+target_link_libraries(sparse_faces PRIVATE nndescent)
 
 add_executable(fmnist tests/fmnist.cpp)
 target_link_libraries(fmnist PRIVATE nndescent)

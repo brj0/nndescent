@@ -94,21 +94,3 @@ print("\nApproximate nearest neighbors query distances\n", nn_query_distances)
 print("\nExact nearest neighbors query distances\n", nn_query_distances_ect)
 print("\nAccuracy of nndescent algorithm compared with exact values (test):")
 accuracy(nn_query_indices, nn_query_indices_ect)
-
-
-# Compare accuracy with pynndescent
-import pynndescent
-
-nnd_py = pynndescent.NNDescent(
-    csr_data, n_neighbors=n_neighbors, metric="cosine"
-)
-nn_indices_py, nn_distances_py = nnd_py.neighbor_graph
-nn_query_indices_py, nn_query_distances_py = nnd_py.query(
-    csr_query_data, k=k_query
-)
-print(
-    "\nAccuracy of pynndescent algorithm compared with exact values (train):"
-)
-accuracy(nn_indices_py, nn_indices_ect)
-print("\nAccuracy of nndescent algorithm compared with exact values (test):")
-accuracy(nn_query_indices_py, nn_query_indices_ect)

@@ -9,7 +9,7 @@ Nearest Neighbor Descent (nndescent) is a C++ implementation of the nearest neig
 - The handling of nndescent is very similar to that of pynndescent.
 - Pure C++11 implementation utilizing OpenMP for parallel computation. No other libraries are needed.
 - Currently tested only on Linux.
-- Support currently only for dense matrices.
+- Both dense and sparse matrices are supported.
 - Implementation of multiple distance functions, i.e.
     - euclidean
     - manhattan

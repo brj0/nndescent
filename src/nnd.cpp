@@ -9,14 +9,25 @@
 #include <iomanip>
 #include <iostream>
 #include <thread>
-#include <map>
 #include <vector>
 #include <stdexcept>
 
 #include "nnd.h"
+#include "distances.h"
 
 namespace nndescent
 {
+
+
+void throw_exception_if_sparse(std::string metric, bool is_sparse)
+{
+    if (is_sparse)
+    {
+        throw std::invalid_argument(
+            "Sparse variant of '" + std::string(metric) + "' not implemented."
+        );
+    }
+}
 
 
 /**
@@ -29,13 +40,13 @@ namespace nndescent
  * @param dist The distance metric used for neighbor selection.
  * @param rng_state The random state used for randomization.
  */
-template<class MatrixType>
+template<class MatrixType, class DistType>
 void init_random
 (
     const MatrixType &data,
     HeapList<float> &current_graph,
     size_t n_neighbors,
-    const DistanceFunction &dist,
+    const DistType &dist,
     RandomState &rng_state
 )
 {
@@ -103,13 +114,13 @@ void correct_distances
  * @param dist The distance metric used for nearest neighbor calculations.
  * @param n_threads The number of threads to use for parallelization.
  */
-template<class MatrixType>
+template<class MatrixType, class DistType>
 void update_by_leaves
 (
     const MatrixType &data,
     HeapList<float> &current_graph,
     Matrix<int> &leaf_array,
-    const DistanceFunction &dist,
+    const DistType &dist,
     int n_threads
 )
 {
@@ -293,14 +304,14 @@ void sample_candidates
  * @return A vector of vectors of NNUpdate objects representing the nearest
  * neighbor updates.
  */
-template<class MatrixType>
+template<class MatrixType, class DistType>
 std::vector<std::vector<NNUpdate>> generate_graph_updates
 (
     const MatrixType &data,
     HeapList<float> &current_graph,
     HeapList<int> &new_candidate_neighbors,
     HeapList<int> &old_candidate_neighbors,
-    const DistanceFunction &dist,
+    const DistType &dist,
     int n_threads
 )
 {
@@ -421,7 +432,34 @@ int apply_graph_updates
 }
 
 
-template<class MatrixType>
+ /**
+  * @brief Performs the NN-descent algorithm for approximate nearest neighbor
+  * search.
+  *
+  * This function applies the NN-descent algorithm to construct an approximate
+  * nearest neighbor graph. It iteratively refines the graph by exploring
+  * neighbor candidates and updating the graph connections based on the
+  * distances between nodes. The algorithm aims to find a graph that represents
+  * the nearest neighbor relationships in the data.
+  *
+  * @param data The input data matrix.
+  * @param current_graph The initial nearest neighbor graph.
+  * @param n_neighbors The desired number of neighbors for each node.
+  * @param rng_state The random state used for randomization.
+  * @param max_candidates The maximum number of candidate neighbors to consider
+  * during exploration.
+  * @param dist The metric used for distance computation.
+  * @param n_iters The number of iterations to perform.
+  * @param delta The value controlling the early abort.
+  * @param n_threads The number of threads to use for parallelization.
+  * @param verbose Flag indicating whether to print progress and diagnostic
+  * messages.
+  *
+  * @tparam MatrixType The type of the input data matrix (e.g. Matrix or
+  * CSRMatrix).
+  * @tparam DistType The type of the distance metric.
+  */
+template<class MatrixType, class DistType>
 void nn_descent
 (
     const MatrixType &data,
@@ -429,7 +467,7 @@ void nn_descent
     int n_neighbors,
     RandomState &rng_state,
     int max_candidates,
-    const DistanceFunction &dist,
+    const DistType &dist,
     int n_iters,
     float delta,
     int n_threads,
@@ -589,7 +627,6 @@ void NNDescent::set_parameters(Parms &parms)
         data.normalize();
     }
     seed_state(rng_state, seed);
-    this->get_distance_function();
     if (verbose)
     {
         std::cout << *this;
@@ -605,7 +642,7 @@ NNDescent::NNDescent(Matrix<float> &input_data, Parms &parms)
 {
     is_sparse = false;
     this->set_parameters(parms);
-    this->start();
+    this->set_dist_and_start_nn<Matrix<float>>();
 }
 
 
@@ -617,16 +654,16 @@ NNDescent::NNDescent(CSRMatrix<float> &input_data, Parms &parms)
 {
     is_sparse = true;
     this->set_parameters(parms);
-    this->start_sparse();
+    this->set_dist_and_start_nn<CSRMatrix<float>>();
 }
 
 
-
-void NNDescent::start()
+template<class MatrixType, class DistType>
+void NNDescent::nnd_algorithm(MatrixType &train_data, DistType &dist)
 {
     if (algorithm == "bf")
     {
-        this->start_brute_force(data);
+        this->start_brute_force(train_data, dist);
         return;
     }
 
@@ -638,32 +675,29 @@ void NNDescent::start()
         );
 
         forest = make_forest(
-            data, n_trees, leaf_size, rng_state
+            train_data, n_trees, leaf_size, rng_state
         );
 
         log("Update Graph by  RP forest", verbose);
 
         Matrix<int> leaf_array = get_leaves_from_forest(forest);
         update_by_leaves(
-            data, current_graph, leaf_array, dist.get_fct(), n_threads
-            // data, current_graph, leaf_array, *dist_fct, n_threads
+            train_data, current_graph, leaf_array, dist, n_threads
         );
     }
 
     init_random(
-        data, current_graph, n_neighbors, dist.get_fct(), rng_state
-        // data, current_graph, n_neighbors, *dist_fct, rng_state
+        train_data, current_graph, n_neighbors, dist, rng_state
     );
 
 
     nn_descent(
-        data,
+        train_data,
         current_graph,
         n_neighbors,
         rng_state,
         max_candidates,
-        // *dist_fct,
-        dist.get_fct(),
+        dist,
         n_iters,
         delta,
         n_threads,
@@ -676,67 +710,7 @@ void NNDescent::start()
     current_graph.heapsort();
 
     correct_distances(
-        distance_correction, current_graph.keys, neighbor_distances
-    );
-
-    neighbor_indices = current_graph.indices;
-}
-
-
-void NNDescent::start_sparse()
-{
-    if (algorithm == "bf")
-    {
-        this->start_brute_force(csr_data);
-        return;
-    }
-
-    if (tree_init)
-    {
-        log(
-            "Building RP forest with " + std::to_string(n_trees) + " trees",
-            verbose
-        );
-
-        forest = make_forest(
-            csr_data, n_trees, leaf_size, rng_state
-        );
-
-        log("Update Graph by  RP forest", verbose);
-
-        Matrix<int> leaf_array = get_leaves_from_forest(forest);
-        update_by_leaves(
-            csr_data, current_graph, leaf_array, dist.get_fct(), n_threads
-            // csr_data, current_graph, leaf_array, *dist_fct, n_threads
-        );
-    }
-
-    init_random(
-        csr_data, current_graph, n_neighbors, dist.get_fct(), rng_state
-        // csr_data, current_graph, n_neighbors, *dist_fct, rng_state
-    );
-
-    nn_descent(
-        csr_data,
-        current_graph,
-        n_neighbors,
-        rng_state,
-        max_candidates,
-        dist.get_fct(),
-        // *dist_fct,
-        n_iters,
-        delta,
-        n_threads,
-        verbose
-    );
-
-    // Make shure every nodes neighborhod contains the node itself.
-    add_zero_node(current_graph);
-
-    current_graph.heapsort();
-
-    correct_distances(
-        distance_correction, current_graph.keys, neighbor_distances
+        dist.correction, current_graph.keys, neighbor_distances
     );
 
     neighbor_indices = current_graph.indices;
@@ -759,13 +733,13 @@ void NNDescent::start_sparse()
  * @param pruning_prob The probability of pruning a long edge (default:
  * 1.0).
  */
-template<class MatrixType>
+template<class MatrixType, class DistType>
 void prune_long_edges
 (
     const MatrixType &data,
     HeapList<float> &graph,
     RandomState &rng_state,
-    const DistanceFunction &dist,
+    const DistType &dist,
     int n_threads,
     float pruning_prob
 )
@@ -828,7 +802,8 @@ void prune_long_edges
 }
 
 
-void NNDescent::prepare()
+template<class DistType>
+void NNDescent::prepare(const DistType &dist)
 {
     // Make a search tree if necessary.
     if (forest.size() == 0)
@@ -858,8 +833,7 @@ void NNDescent::prepare()
             csr_data,
             forward_graph,
             rng_state,
-            dist.get_fct(),
-            // *dist_fct,
+            dist,
             n_threads,
             pruning_prob
         );
@@ -871,8 +845,7 @@ void NNDescent::prepare()
             data,
             forward_graph,
             rng_state,
-            dist.get_fct(),
-            // *dist_fct,
+            dist,
             n_threads,
             pruning_prob
         );
@@ -919,8 +892,12 @@ void NNDescent::prepare()
     }
 }
 
-template<class MatrixType>
-void NNDescent::start_brute_force(const MatrixType &mtx_data)
+
+template<class MatrixType, class DistType>
+void NNDescent::start_brute_force
+(
+    const MatrixType &mtx_data, const DistType &dist
+)
 {
     ProgressBar bar(mtx_data.nrows(), verbose);
     #pragma omp parallel for num_threads(n_threads)
@@ -929,15 +906,14 @@ void NNDescent::start_brute_force(const MatrixType &mtx_data)
         bar.show();
         for (size_t idx1 = 0; idx1 < mtx_data.nrows(); ++idx1)
         {
-            float d = (dist.get_fct())(mtx_data, idx0, idx1);
-            // float d = (*dist_fct)(mtx_data, idx0, idx1);
+            float d = dist(mtx_data, idx0, idx1);
             current_graph.checked_push(idx0, idx1, d);
         }
     }
     current_graph.heapsort();
     neighbor_indices = current_graph.indices;
     correct_distances(
-        distance_correction, current_graph.keys, neighbor_distances
+        dist.correction, current_graph.keys, neighbor_distances
     );
 }
 
@@ -996,118 +972,6 @@ std::ostream& operator<<(std::ostream &out, const NNDescent &nnd)
         << "is_sparse=" << nnd.is_sparse  << ",\n"
         << ")\n";
     return out;
-}
-
-
-/**
- * @brief Get the distance function based on the selected metric.
- *
- * This function retrieves the appropriate distance function based on the
- * selected metric. It assigns the distance function to the variable 'dist'
- * and the distance correction function to the variable 'distance_correction'.
- * The distance function is used to compute the distance between two points,
- * while the distance correction function is used to correct the distances at
- * the end of the calculation if necessary.
- */
-void NNDescent::get_distance_function()
-{
-    using DF = DistanceFunction;
-    using DFp = DistanceFunction_p;
-    using DF_p = DistanceFunction__p;
-
-    std::map<std::string, DF> DF_map
-    {
-        { "alternative_cosine", DF(alternative_cosine, sparse_alternative_cosine)},
-        { "alternative_dot", DF(alternative_dot, sparse_alternative_dot) },
-        { "braycurtis", DF(bray_curtis, sparse_bray_curtis) },
-        { "canberra", DF(canberra, sparse_canberra) },
-        { "chebyshev", DF(chebyshev, sparse_chebyshev) },
-        { "cosine", DF(cosine, sparse_cosine) },
-        { "dice", DF(dice, sparse_dice) },
-        { "dot", DF(dot, sparse_dot) },
-        { "euclidean", DF(squared_euclidean, sparse_squared_euclidean, std::sqrt) },
-        { "hamming", DF(hamming, sparse_hamming) },
-        { "haversine", DF(haversine, nullptr) },
-        { "hellinger", DF(hellinger, sparse_hellinger) },
-        { "jaccard", DF(jaccard, sparse_jaccard) },
-        { "manhattan", DF(manhattan, sparse_manhattan) },
-        { "matching", DF(matching, sparse_matching) },
-        { "sokalsneath", DF(sokal_sneath, sparse_sokal_sneath) },
-        { "spearmanr", DF(spearmanr, nullptr) },
-        { "sqeuclidean", DF(squared_euclidean, sparse_squared_euclidean) },
-        { "true_angular", DF(true_angular, sparse_true_angular) },
-        { "tsss", DF(tsss, sparse_tsss) },
-    };
-
-    std::map<std::string, DFp> DFp_map
-    {
-        { "circular_kantorovich", DFp(circular_kantorovich, nullptr, p_metric) },
-        { "minkowski", DFp(minkowski, sparse_minkowski, p_metric) },
-        { "wasserstein_1d", DFp(wasserstein_1d, nullptr, p_metric) },
-    };
-
-    std::map<std::string, DF_p> DF_p_map
-    {
-        { "correlation", DF_p(correlation, sparse_correlation, data_dim) },
-        { "jensen_shannon", DF_p(jensen_shannon_divergence,
-            sparse_jensen_shannon_divergence, data_dim) },
-        { "kulsinski", DF_p(kulsinski, sparse_kulsinski, data_dim) },
-        { "rogerstanimoto", DF_p(rogers_tanimoto, sparse_rogers_tanimoto, data_dim) },
-        { "russellrao", DF_p(russellrao, sparse_rogers_tanimoto, data_dim) },
-        { "sokalmichener", DF_p(sokal_michener, sparse_sokal_michener, data_dim) },
-        { "symmetric_kl", DF_p(symmetric_kl_divergence,
-            sparse_symmetric_kl_divergence, data_dim) },
-        { "yule", DF_p(yule, sparse_yule, data_dim) }
-    };
-
-    if (DF_map.count(metric) > 0)
-    {
-        // _dist_DF = DF_map[metric];
-        // dist_fct = &_dist_DF;
-        dist = Distance(DF_map[metric]);
-    }
-    else if (DFp_map.count(metric) > 0)
-    {
-        // _dist_DFp = DFp_map[metric];
-        // dist_fct = &_dist_DFp;
-        dist = Distance(DFp_map[metric]);
-    }
-    else if (DF_p_map.count(metric) > 0)
-    {
-        // _dist_DF_p = DF_p_map[metric];
-        // dist_fct = &_dist_DF_p;
-        dist = Distance(DF_p_map[metric]);
-    }
-    else
-    {
-        throw std::invalid_argument("Invalid metric");
-    }
-    distance_correction = dist.get_fct().correction;
-    // distance_correction = dist_fct->correction;
-
-    if
-    (
-        is_sparse &&
-        !dist.get_fct().sparse_metric &&
-        !dist.get_fct().sparse_metric_p
-        // !dist_fct->sparse_metric &&
-        // !dist_fct->sparse_metric_p
-    )
-    {
-        throw std::invalid_argument(
-            "Sparse variant of '" + std::string(metric) + "' not implemented."
-        );
-
-    }
-    if (metric == "haversine")
-    {
-        if (data_dim != 2)
-        {
-            throw std::invalid_argument(
-                "haversine is only defined for 2 dimensional graph_data"
-            );
-        }
-    }
 }
 
 

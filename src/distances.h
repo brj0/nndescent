@@ -622,7 +622,7 @@ float minkowski(Iter0 first0, Iter0 last0, Iter1 first1, float p)
 
 /**
  * @brief Sparse Minkowski distance.
- *
+ 
  * \f[
  *     D(x, y) = \left(\sum_i |x_i - y_i|^p\right)^{\frac{1}{p}}
  * \f]
@@ -3631,91 +3631,44 @@ float sparse_symmetric_kl_divergence(
 }
 
 
-class DistanceFunction
+template<
+    float (*Dense)(It, It, It),
+    float (*Sparse)(size_t*, size_t*, It, size_t*, size_t*, It)
+>
+class Dist
 {
-private:
 public:
-    Metric dense_metric;
-    SparseMetric sparse_metric;
-
-    Metric_p dense_metric_p;
-    SparseMetric_p sparse_metric_p;
-    float p_metric=1.0f;
-
+    /*
+     * Some metrics have alternative forms that allow for faster calculations,
+     * but these forms may produce slightly different distances. This function
+     * applies distance correction if an alternative metric is used.
+     */
     Function1d correction;
-    DistanceFunction()
-        : dense_metric()
-        , sparse_metric()
-        , dense_metric_p()
-        , sparse_metric_p()
-        , correction(identity)
-    {
-    }
-    DistanceFunction
-    (
-        Metric dense,
-        SparseMetric sparse,
-        Function1d corr=identity
-    )
-        : dense_metric(dense)
-        , sparse_metric(sparse)
-        , correction(corr)
+    Metric dense=Dense;
+    SparseMetric sparse=Sparse;
+
+    Dist()
+        : correction(identity)
     {
     }
 
-    DistanceFunction
-    (
-        Metric_p dense,
-        SparseMetric_p sparse,
-        float p,
-        Function1d corr=identity
-    )
-        : dense_metric_p(dense)
-        , sparse_metric_p(sparse)
-        , p_metric(p)
-        , correction(corr)
+    Dist(Function1d cor)
+        : correction(cor)
     {
     }
 
-    DistanceFunction
-    (
-        Metric_p dense,
-        SparseMetric_p sparse,
-        Function1d corr=identity
-    )
-        : dense_metric_p(dense)
-        , sparse_metric_p(sparse)
-        , correction(corr)
-    {
-    }
-
-    DistanceFunction
-    (
-        Metric dense,
-        SparseMetric_p sparse,
-        float p,
-        Function1d corr=identity
-    )
-        : dense_metric(dense)
-        , sparse_metric_p(sparse)
-        , p_metric(p)
-        , correction(corr)
-    {
-    }
-
-    virtual inline float operator()
+    inline float operator()
     (
         const Matrix<float> &data,
         int idx0,
         int idx1
     ) const
     {
-        return dense_metric(
+        return Dense(
             data.begin(idx0), data.end(idx0), data.begin(idx1)
         );
     }
-
-    virtual inline float operator()
+    inline float operator()
     (
         const Matrix<float> &data,
         int idx_d,
@@ -3723,19 +3676,19 @@ public:
         int idx_q
     ) const
     {
-        return dense_metric(
+        return Dense(
             data.begin(idx_d), data.end(idx_d), query_data.begin(idx_q)
         );
     }
 
-    virtual inline float operator()
+    inline float operator()
     (
         const CSRMatrix<float> &data,
         int idx0,
         int idx1
     ) const
     {
-        return sparse_metric(
+        return Sparse(
             data.begin_col(idx0),
             data.end_col(idx0),
             data.begin_data(idx0),
@@ -3744,8 +3697,7 @@ public:
             data.begin_data(idx1)
         );
     }
-
-    virtual inline float operator()
+    inline float operator()
     (
         const CSRMatrix<float> &data,
         int idx_d,
@@ -3753,7 +3705,7 @@ public:
         int idx_q
     ) const
     {
-        return sparse_metric(
+        return Sparse(
             data.begin_col(idx_d),
             data.end_col(idx_d),
             data.begin_data(idx_d),
@@ -3762,36 +3714,58 @@ public:
             query_data.begin_data(idx_q)
         );
     }
+
 };
 
 
-class DistanceFunction_p : public DistanceFunction
+template<
+    float (*Dense)(It, It, It, float),
+    float (*Sparse)(size_t*, size_t*, It, size_t*, size_t*, It, float)
+>
+class DistP
 {
-private:
 public:
-    using DistanceFunction::DistanceFunction;
+    float p_metric=1.0f;
+
+    /*
+     * Some metrics have alternative forms that allow for faster calculations,
+     * but these forms may produce slightly different distances. This function
+     * applies distance correction if an alternative metric is used.
+     */
+    Function1d correction;
+
+    DistP(float p)
+        : p_metric(p)
+        , correction(identity)
+    {
+    }
+
+    DistP(float p, Function1d cor)
+        : p_metric(p)
+        , correction(cor)
+    {
+    }
 
     inline float operator()
     (
         const Matrix<float> &data,
         int idx0,
         int idx1
-    ) const override
+    ) const
     {
-        return dense_metric_p(
+        return Dense(
             data.begin(idx0), data.end(idx0), data.begin(idx1), p_metric
         );
     }
-
     inline float operator()
     (
         const Matrix<float> &data,
         int idx_d,
         const Matrix<float> &query_data,
         int idx_q
-    ) const override
+    ) const
     {
-        return dense_metric_p(
+        return Dense(
             data.begin(idx_d), data.end(idx_d), query_data.begin(idx_q), p_metric
         );
     }
@@ -3801,9 +3775,9 @@ public:
         const CSRMatrix<float> &data,
         int idx0,
         int idx1
-    ) const override
+    ) const
     {
-        return sparse_metric_p(
+        return Sparse(
             data.begin_col(idx0),
             data.end_col(idx0),
             data.begin_data(idx0),
@@ -3813,16 +3787,15 @@ public:
             p_metric
         );
     }
-
     inline float operator()
     (
         const CSRMatrix<float> &data,
         int idx_d,
         const CSRMatrix<float> &query_data,
         int idx_q
-    ) const override
+    ) const
     {
-        return sparse_metric_p(
+        return Sparse(
             data.begin_col(idx_d),
             data.end_col(idx_d),
             data.begin_data(idx_d),
@@ -3832,127 +3805,139 @@ public:
             p_metric
         );
     }
+
 };
 
 
-class DistanceFunction__p : public DistanceFunction
+template<
+    float (*Dense)(It, It, It),
+    float (*Sparse)(size_t*, size_t*, It, size_t*, size_t*, It, float)
+>
+class DistD
 {
-private:
 public:
-    using DistanceFunction::DistanceFunction;
+    float dim;
+
+    /*
+     * Some metrics have alternative forms that allow for faster calculations,
+     * but these forms may produce slightly different distances. This function
+     * applies distance correction if an alternative metric is used.
+     */
+    Function1d correction;
+
+    DistD(float d)
+        : dim(d)
+        , correction(identity)
+    {
+    }
+
+    DistD(float d, Function1d cor)
+        : dim(d)
+        , correction(cor)
+    {
+    }
+
+    inline float operator()
+    (
+        const Matrix<float> &data,
+        int idx0,
+        int idx1
+    ) const
+    {
+        return Dense(
+            data.begin(idx0), data.end(idx0), data.begin(idx1)
+        );
+    }
+    inline float operator()
+    (
+        const Matrix<float> &data,
+        int idx_d,
+        const Matrix<float> &query_data,
+        int idx_q
+    ) const
+    {
+        return Dense(
+            data.begin(idx_d), data.end(idx_d), query_data.begin(idx_q)
+        );
+    }
 
     inline float operator()
     (
         const CSRMatrix<float> &data,
         int idx0,
         int idx1
-    ) const override
+    ) const
     {
-        return sparse_metric_p(
+        return Sparse(
             data.begin_col(idx0),
             data.end_col(idx0),
             data.begin_data(idx0),
             data.begin_col(idx1),
             data.end_col(idx1),
             data.begin_data(idx1),
-            p_metric
+            dim
         );
     }
-
     inline float operator()
     (
         const CSRMatrix<float> &data,
         int idx_d,
         const CSRMatrix<float> &query_data,
         int idx_q
-    ) const override
+    ) const
     {
-        return sparse_metric_p(
+        return Sparse(
             data.begin_col(idx_d),
             data.end_col(idx_d),
             data.begin_data(idx_d),
             query_data.begin_col(idx_q),
             query_data.end_col(idx_q),
             query_data.begin_data(idx_q),
-            p_metric
+            dim
         );
     }
-};
-
-
-class Distance
-{
-public:
-    DistanceFunction df;
-    DistanceFunction_p dfp;
-    DistanceFunction__p df_p;
-    DistanceFunction* ptr;
-
-    Distance() {}
-
-    Distance(DistanceFunction d)
-        : df(d)
-        , ptr(&df)
-    {
-    }
-
-    Distance(DistanceFunction_p d)
-        : dfp(d)
-        , ptr(&dfp)
-    {
-    }
-    Distance(DistanceFunction__p d)
-        : df_p(d)
-        , ptr(&df_p)
-    {
-    }
-
-    DistanceFunction& get_fct()
-    {
-        return *ptr;
-    }
-
-    Distance(const Distance& other)
-        : df(other.df)
-        , dfp(other.dfp)
-        , df_p(other.df_p)
-    {
-        this->set_ptr(other);
-    }
-
-    Distance& operator=(const Distance& other)
-    {
-        if (this == &other)
-        {
-            return *this;
-        }
-
-        df = other.df;
-        dfp = other.dfp;
-        df_p = other.df_p;
-        this->set_ptr(other);
-
-
-        return *this;
-    }
-
-    void set_ptr(const Distance& other)
-    {
-        if (other.ptr == &other.df)
-        {
-            ptr = &df;
-        }
-        else if (other.ptr == &other.dfp)
-        {
-            ptr = &dfp;
-        }
-        else
-        {
-            ptr = &df_p;
-        }
-    }
 
 };
+
+
+// METRICS WITH NO PARAMETERS
+using AltCosine = Dist<alternative_cosine, sparse_alternative_cosine>;
+using AltDot = Dist<alternative_dot, sparse_alternative_dot>;
+using BrayCurtis = Dist<bray_curtis, sparse_bray_curtis>;
+using Canberra = Dist<canberra, sparse_canberra>;
+using Chebyshev = Dist<chebyshev, sparse_chebyshev>;
+using Cosine = Dist<cosine, sparse_cosine>;
+using Dice = Dist<dice, sparse_dice>;
+using Dot = Dist<dot, sparse_dot>;
+using Euclidean = Dist<squared_euclidean, sparse_squared_euclidean>;
+using Hamming = Dist<hamming, sparse_hamming>;
+using Haversine = Dist<haversine, nullptr>;
+using Hellinger = Dist<hellinger, sparse_hellinger>;
+using Jaccard = Dist<jaccard, sparse_jaccard>;
+using Manhattan = Dist<manhattan, sparse_manhattan>;
+using Matching = Dist<matching, sparse_matching>;
+using SokalSneath = Dist<sokal_sneath, sparse_sokal_sneath>;
+using SpearmanR = Dist<spearmanr, nullptr>;
+using SqEuclidean = Dist<squared_euclidean, sparse_squared_euclidean>;
+using TrueAngular = Dist<true_angular, sparse_true_angular>;
+using Tsss = Dist<tsss, sparse_tsss>;
+
+
+// METRICS WITH ONE FLOAT PARAMETER
+using CircularKantorovich = DistP<circular_kantorovich, nullptr>;
+using Minkowski = DistP<minkowski, sparse_minkowski>;
+using Wasserstein = DistP<wasserstein_1d, nullptr>;
+
+
+// METRICS WHERE THE SPARSE VERSION NEEDS KNOWLEDGE OF THE DIMENSION
+using Correlation = DistD<correlation, sparse_correlation>;
+using JensenShannon = DistD<jensen_shannon_divergence, sparse_jensen_shannon_divergence>;
+using Kulsinski = DistD<kulsinski, sparse_kulsinski>;
+using RogersTanimoto = DistD<rogers_tanimoto, sparse_rogers_tanimoto>;
+using Russelrao = DistD<russellrao, sparse_russellrao>;
+using SokalMichener = DistD<sokal_michener, sparse_sokal_michener>;
+using SymmetriyKlDiv = DistD<symmetric_kl_divergence, sparse_symmetric_kl_divergence>;
+using Yule = DistD<yule, sparse_yule>;
 
 
 } // namespace nndescent

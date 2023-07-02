@@ -414,7 +414,7 @@ public:
  * that goes through the midpoint between the two points and is normal to their
  * difference.
  *
- * @tparam DistanceType The distance type to use for the split, which can be
+ * @tparam SplitType The split type to use for the split, which can be
  * either Euclidean or Angular.
  *
  * @param data The input data matrix.
@@ -426,7 +426,7 @@ public:
  * @return A tuple containing the left child indices, right child indices,
  * hyperplane normal vector, and hyperplane offset.
  */
-template<class DistanceType>
+template<class SplitType>
 std::tuple<std::vector<int>, std::vector<int>, std::vector<float>, float>
 random_projection_split
 (
@@ -436,7 +436,7 @@ random_projection_split
 );
 
 
-template<class DistanceType>
+template<class SplitType>
 std::tuple
 <
     std::vector<int>,
@@ -459,7 +459,7 @@ sparse_random_projection_split
  * This function builds a random projection tree by recursively splitting the
  * data using random projection.
  *
- * @tparam DistanceType The distance type to use for the split.
+ * @tparam SplitType The split type to use for the split.
  * @tparam MatrixType The matrix type (either dense or sparse).
  * @param rp_tree The random projection tree object to build.
  * @param data The input data matrix.
@@ -468,7 +468,7 @@ sparse_random_projection_split
  * @param rng_state The random state used for generating random numbers.
  * @param max_depth The maximum depth of the tree (default: 100).
  */
-template<class DistanceType, class MatrixType>
+template<class SplitType, class MatrixType>
 void build_rp_tree_recursively
 (
     RPTree &rp_tree,
@@ -480,7 +480,7 @@ void build_rp_tree_recursively
 );
 
 
-template<class DistanceType>
+template<class SplitType>
 void build_rp_tree_recursively
 (
     RPTree &rp_tree,
@@ -513,14 +513,14 @@ void build_rp_tree_recursively
     std::tie
     (
         left_indices, right_indices, hyperplane, offset
-    ) = random_projection_split<DistanceType>
+    ) = random_projection_split<SplitType>
     (
         data,
         indices,
         rng_state
     );
 
-    build_rp_tree_recursively<DistanceType>
+    build_rp_tree_recursively<SplitType>
     (
         rp_tree,
         data,
@@ -532,7 +532,7 @@ void build_rp_tree_recursively
 
     size_t left_subtree = rp_tree.get_index();
 
-    build_rp_tree_recursively<DistanceType>
+    build_rp_tree_recursively<SplitType>
     (
         rp_tree,
         data,
@@ -547,7 +547,7 @@ void build_rp_tree_recursively
 }
 
 
-template<class DistanceType>
+template<class SplitType>
 void build_rp_tree_recursively
 (
     RPTree &rp_tree,
@@ -581,14 +581,14 @@ void build_rp_tree_recursively
     std::tie
     (
         left_indices, right_indices, hyperplane_ind, hyperplane_data, offset
-    ) = sparse_random_projection_split<DistanceType>
+    ) = sparse_random_projection_split<SplitType>
     (
         data,
         indices,
         rng_state
     );
 
-    build_rp_tree_recursively<DistanceType>
+    build_rp_tree_recursively<SplitType>
     (
         rp_tree,
         data,
@@ -600,7 +600,7 @@ void build_rp_tree_recursively
 
     size_t left_subtree = rp_tree.get_index();
 
-    build_rp_tree_recursively<DistanceType>
+    build_rp_tree_recursively<SplitType>
     (
         rp_tree,
         data,
@@ -627,7 +627,7 @@ void build_rp_tree_recursively
  * @tparam MatrixType The matrix type (either dense or sparse).
  * @param leaf_size The maximum number of points in a leaf.
  * @param rng_state The random state used for generating random numbers.
- * @param angular Specifies whether to use angular distance (default: false).
+ * @param angular Specifies whether to use angular split (default: false).
  * @return The constructed random projection tree.
  */
 template<class MatrixType>

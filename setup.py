@@ -26,11 +26,13 @@ module = Extension(
         "src/nnd.cpp",
         "src/rp_trees.cpp",
         "src/utils.cpp",
+        "src/distances.cpp",
     ],
     include_dirs=include_dirs,
     extra_compile_args=[
         "-Ofast",
         "-flto",
+        "-DALL_METRICS",
         "-fno-math-errno",
         "-fopenmp",
         "-g",
