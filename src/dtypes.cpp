@@ -4,28 +4,12 @@
  * @brief Data types used (Matrix, Heap, HeapList).
  */
 
-#include <iostream>
-#include <string>
 
 #include "dtypes.h"
 
 
 namespace nndescent
 {
-
-
-int non_none_cnt(std::vector<std::vector<int>> matrix)
-{
-    int cnt = 0;
-    for (size_t i = 0; i < matrix.size(); ++i)
-    {
-        for (size_t j = 0; j < matrix[i].size(); ++j)
-        {
-            cnt += (matrix[i][j] == NONE) ? 0 : 1;
-        }
-    }
-    return cnt;
-}
 
 
 void print_map(Matrix<float> matrix)

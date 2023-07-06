@@ -13,7 +13,6 @@ from sklearn.neighbors import KDTree, NearestNeighbors
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.sparse
 import seaborn as sns
 
 import pynndescent
@@ -76,13 +75,13 @@ def exact_nn(train, test, n_neighbors):
     fpath_nn = os.path.join(DATA_PATH, fname_nn)
     fpath_dist = os.path.join(DATA_PATH, fname_dist)
     if not (os.path.exists(fpath_nn) and os.path.exists(fpath_dist)):
-        print(f"Exact k-NN for comparison not cached; calculating now...")
+        print("Exact k-NN for comparison not cached; calculating now...")
         nn_model = NearestNeighbors(n_neighbors=n_neighbors, metric="cosine")
         nn_model.fit(train)
         knn = nn_model.kneighbors(test)
         np.save(fpath_nn, knn[1])
         np.save(fpath_dist, knn[0])
-        print(f"Calculation done. Result cached.")
+        print("Calculation done. Result cached.")
     nn = np.load(fpath_nn)
     dist = np.load(fpath_dist)
     return nn, dist
@@ -231,7 +230,7 @@ acc_test_py = accuracy(nn_test_py, nn_test_kdt)
 print("\nfaces_test: Accuracy nndescent vs exact values")
 acc_test_c = accuracy(nn_test_c, nn_test_kdt)
 
-# Ad results to summary
+# Add results to summary
 summary = [
     [
         "faces",
@@ -259,15 +258,15 @@ ANNBEN = {
     # "deep": "deep-image-96-angular", # huge
     "fmnist": "fashion-mnist-784-euclidean",
     # "gist": "gist-960-euclidean", # huge
-    # "glove25": "glove-25-angular",
-    # "glove50": "glove-50-angular",
-    # "glove100": "glove-100-angular",
-    # "glove200": "glove-200-angular",
+    "glove25": "glove-25-angular",
+    "glove50": "glove-50-angular",
+    "glove100": "glove-100-angular",
+    "glove200": "glove-200-angular",
     # "kosark": "kosarak-jaccard", # url not working
     "mnist": "mnist-784-euclidean",
     # "movielens": "movielens10m-jaccard", # url not working
-    # "nytimes": "nytimes-256-angular",
-    # "sift": "sift-128-euclidean",
+    "nytimes": "nytimes-256-angular",
+    "sift": "sift-128-euclidean",
     # "lastfm": "lastfm-64-dot", # url not working
 }
 

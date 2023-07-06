@@ -6,7 +6,6 @@
 
 
 #include <assert.h>
-#include <iomanip>
 #include <iostream>
 #include <thread>
 #include <vector>
@@ -30,7 +29,7 @@ void throw_exception_if_sparse(std::string metric, bool is_sparse)
 }
 
 
-/**
+/*
  * @brief Initializes the nearest neighbor graph with random neighbors for
  * missing nodes.
  *
@@ -41,8 +40,7 @@ void throw_exception_if_sparse(std::string metric, bool is_sparse)
  * @param rng_state The random state used for randomization.
  */
 template<class MatrixType, class DistType>
-void init_random
-(
+void init_random(
     const MatrixType &data,
     HeapList<float> &current_graph,
     size_t n_neighbors,
@@ -65,13 +63,10 @@ void init_random
 }
 
 
-/**
+/*
  * @brief Adds every node to its own neighborhod.
- *
- * @param current_graph The current nearest neighbor graph.
  */
-void add_zero_node
-(
+void add_zero_node(
     HeapList<float> &current_graph
 )
 {
@@ -82,26 +77,7 @@ void add_zero_node
 }
 
 
-void correct_distances
-(
-    Function1d distance_correction,
-    Matrix<float> &in,
-    Matrix<float> &out
-)
-{
-    out.resize(in.nrows(), in.ncols());
-    for (size_t i = 0; i < in.nrows(); ++i)
-    {
-        for (size_t j = 0; j < in.ncols(); ++j)
-        {
-            out(i, j) = distance_correction(in(i,j));
-        }
-    }
-    return;
-}
-
-
- /**
+/*
  * @brief Updates the nearest neighbor graph using leaves constructed from
  * random projection trees.
  *
@@ -111,12 +87,11 @@ void correct_distances
  * @param data The input data matrix.
  * @param current_graph The current nearest neighbor graph.
  * @param leaf_array The matrix of leaf indices.
- * @param dist The distance metric used for nearest neighbor calculations.
+ * @param dist The distance function used for nearest neighbor calculations.
  * @param n_threads The number of threads to use for parallelization.
  */
 template<class MatrixType, class DistType>
-void update_by_leaves
-(
+void update_by_leaves(
     const MatrixType &data,
     HeapList<float> &current_graph,
     Matrix<int> &leaf_array,
@@ -207,8 +182,7 @@ void update_by_leaves
  * @param rng_state The random state used for randomization.
  * @param n_threads The number of threads to use for parallelization.
  */
-void sample_candidates
-(
+void sample_candidates(
     HeapList<float> &current_graph,
     HeapList<int> &new_candidates,
     HeapList<int> &old_candidates,
@@ -267,7 +241,7 @@ void sample_candidates
             }
         }
     }
-    // Mark sampled nodes in current_graph as old.
+    // Mark sampled nodes in current_graph as 'OLD'.
     for (size_t idx0 = 0; idx0 < current_graph.nheaps(); ++idx0)
     {
         for (size_t j = 0; j < current_graph.nnodes(); ++j)
@@ -299,14 +273,12 @@ void sample_candidates
  * @param old_candidate_neighbors The heap of old candidate neighbors.
  * @param dist The distance metric used for calculating distances.
  * @param n_threads The number of threads to use for parallelization.
- * @param verbose The verbosity flag indicating whether to enable logging
- * messages.
+ *
  * @return A vector of vectors of NNUpdate objects representing the nearest
  * neighbor updates.
  */
 template<class MatrixType, class DistType>
-std::vector<std::vector<NNUpdate>> generate_graph_updates
-(
+std::vector<std::vector<NNUpdate>> generate_graph_updates(
     const MatrixType &data,
     HeapList<float> &current_graph,
     HeapList<int> &new_candidate_neighbors,
@@ -334,8 +306,7 @@ std::vector<std::vector<NNUpdate>> generate_graph_updates
                 {
                     continue;
                 }
-                for
-                (
+                for (
                     size_t k = j + 1; k < new_candidate_neighbors.nnodes(); ++k
                 )
                 {
@@ -387,16 +358,10 @@ std::vector<std::vector<NNUpdate>> generate_graph_updates
  * @param updates A vector of vectors of NNUpdate objects representing the
  * potential graph updates.
  * @param n_threads The number of threads to use for parallelization.
+ *
  * @return The number of updates applied to the graph.
  */
 int apply_graph_updates(
-    HeapList<float>& current_graph,
-    std::vector<std::vector<NNUpdate>>& updates,
-    int n_threads
-);
-
-int apply_graph_updates
-(
     HeapList<float> &current_graph,
     std::vector<std::vector<NNUpdate>> &updates,
     int n_threads
@@ -432,7 +397,7 @@ int apply_graph_updates
 }
 
 
- /**
+ /*
   * @brief Performs the NN-descent algorithm for approximate nearest neighbor
   * search.
   *
@@ -442,8 +407,13 @@ int apply_graph_updates
   * distances between nodes. The algorithm aims to find a graph that represents
   * the nearest neighbor relationships in the data.
   *
+  * @tparam MatrixType The type of the input data matrix (e.g. Matrix or
+  * CSRMatrix).
+  * @tparam DistType The type of the distance metric.
+  *
   * @param data The input data matrix.
-  * @param current_graph The initial nearest neighbor graph.
+  * @param current_graph The initial nearest neighbor graph. The resulting
+  * nearest neighbor graph will be stored in this variable
   * @param n_neighbors The desired number of neighbors for each node.
   * @param rng_state The random state used for randomization.
   * @param max_candidates The maximum number of candidate neighbors to consider
@@ -454,14 +424,9 @@ int apply_graph_updates
   * @param n_threads The number of threads to use for parallelization.
   * @param verbose Flag indicating whether to print progress and diagnostic
   * messages.
-  *
-  * @tparam MatrixType The type of the input data matrix (e.g. Matrix or
-  * CSRMatrix).
-  * @tparam DistType The type of the distance metric.
   */
 template<class MatrixType, class DistType>
-void nn_descent
-(
+void nn_descent(
     const MatrixType &data,
     HeapList<float> &current_graph,
     int n_neighbors,
@@ -603,8 +568,7 @@ void NNDescent::set_parameters(Parms &parms)
         int n_processors = std::thread::hardware_concurrency();
         n_threads = n_processors == 0 ? 4 : n_processors;
     }
-    if
-    (
+    if (
            (metric == "correlation")
         || (metric == "cosine")
         || (metric == "dice")
@@ -634,11 +598,11 @@ void NNDescent::set_parameters(Parms &parms)
 }
 
 
-NNDescent::NNDescent(Matrix<float> &input_data, Parms &parms)
-    : data(input_data)
+NNDescent::NNDescent(Matrix<float> &train_data, Parms &parms)
+    : data(train_data)
     , data_size(data.nrows())
     , data_dim(data.ncols())
-    , current_graph(input_data.nrows(), parms.n_neighbors, FLOAT_MAX, NEW)
+    , current_graph(train_data.nrows(), parms.n_neighbors, FLOAT_MAX, NEW)
 {
     is_sparse = false;
     this->set_parameters(parms);
@@ -646,11 +610,11 @@ NNDescent::NNDescent(Matrix<float> &input_data, Parms &parms)
 }
 
 
-NNDescent::NNDescent(CSRMatrix<float> &input_data, Parms &parms)
-    : csr_data(input_data)
+NNDescent::NNDescent(CSRMatrix<float> &train_data, Parms &parms)
+    : csr_data(train_data)
     , data_size(csr_data.nrows())
     , data_dim(csr_data.ncols())
-    , current_graph(input_data.nrows(), parms.n_neighbors, FLOAT_MAX, NEW)
+    , current_graph(train_data.nrows(), parms.n_neighbors, FLOAT_MAX, NEW)
 {
     is_sparse = true;
     this->set_parameters(parms);
@@ -659,7 +623,10 @@ NNDescent::NNDescent(CSRMatrix<float> &input_data, Parms &parms)
 
 
 template<class MatrixType, class DistType>
-void NNDescent::nnd_algorithm(MatrixType &train_data, DistType &dist)
+void NNDescent::run_nn_descent(
+    const MatrixType &train_data,
+    const DistType &dist
+)
 {
     if (algorithm == "bf")
     {
@@ -690,7 +657,6 @@ void NNDescent::nnd_algorithm(MatrixType &train_data, DistType &dist)
         train_data, current_graph, n_neighbors, dist, rng_state
     );
 
-
     nn_descent(
         train_data,
         current_graph,
@@ -710,7 +676,7 @@ void NNDescent::nnd_algorithm(MatrixType &train_data, DistType &dist)
     current_graph.heapsort();
 
     correct_distances(
-        dist.correction, current_graph.keys, neighbor_distances
+        dist, current_graph.keys, neighbor_distances
     );
 
     neighbor_indices = current_graph.indices;
@@ -729,13 +695,10 @@ void NNDescent::nnd_algorithm(MatrixType &train_data, DistType &dist)
  * @param rng_state Random number generator state.
  * @param dist The distance metric used for pruning.
  * @param n_threads The number of threads to use for parallelization.
- * @param verbose Flag indicating whether to print verbose output.
- * @param pruning_prob The probability of pruning a long edge (default:
- * 1.0).
+ * @param pruning_prob The probability of pruning a long edge.
  */
 template<class MatrixType, class DistType>
-void prune_long_edges
-(
+void prune_long_edges(
     const MatrixType &data,
     HeapList<float> &graph,
     RandomState &rng_state,
@@ -828,8 +791,7 @@ void NNDescent::prepare(const DistType &dist)
 
     if (is_sparse)
     {
-        prune_long_edges
-        (
+        prune_long_edges(
             csr_data,
             forward_graph,
             rng_state,
@@ -840,8 +802,7 @@ void NNDescent::prepare(const DistType &dist)
     }
     else
     {
-        prune_long_edges
-        (
+        prune_long_edges(
             data,
             forward_graph,
             rng_state,
@@ -894,26 +855,25 @@ void NNDescent::prepare(const DistType &dist)
 
 
 template<class MatrixType, class DistType>
-void NNDescent::start_brute_force
-(
-    const MatrixType &mtx_data, const DistType &dist
+void NNDescent::start_brute_force(
+    const MatrixType &train_data, const DistType &dist
 )
 {
-    ProgressBar bar(mtx_data.nrows(), verbose);
+    ProgressBar bar(train_data.nrows(), verbose);
     #pragma omp parallel for num_threads(n_threads)
-    for (size_t idx0 = 0; idx0 < mtx_data.nrows(); ++idx0)
+    for (size_t idx0 = 0; idx0 < train_data.nrows(); ++idx0)
     {
         bar.show();
-        for (size_t idx1 = 0; idx1 < mtx_data.nrows(); ++idx1)
+        for (size_t idx1 = 0; idx1 < train_data.nrows(); ++idx1)
         {
-            float d = dist(mtx_data, idx0, idx1);
+            float d = dist(train_data, idx0, idx1);
             current_graph.checked_push(idx0, idx1, d);
         }
     }
     current_graph.heapsort();
     neighbor_indices = current_graph.indices;
     correct_distances(
-        dist.correction, current_graph.keys, neighbor_distances
+        dist, current_graph.keys, neighbor_distances
     );
 }
 

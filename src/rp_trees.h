@@ -7,17 +7,15 @@
 
 #pragma once
 
+#include <tuple>
 
+#include "utils.h"
 #include "dtypes.h"
 #include "distances.h"
-#include "utils.h"
+
 
 namespace nndescent
 {
-
-
-// Types
-typedef std::vector<int> IntVec;
 
 
 // Dummy classes for templates
@@ -29,7 +27,7 @@ class AngularSplit {};
 const float EPS = 1e-8;
 
 
-/**
+/*
  * @brief Counts the number of common elements between two ranges.
  */
 template<class Iter0, class Iter1>
@@ -57,7 +55,7 @@ int arr_intersect(Iter0 first0, Iter0 last0, Iter1 first1, Iter1 last1)
 }
 
 
-/**
+/*
  * @brief Represents a node in the Random Projection Tree.
  *
  * This struct represents a node in the Random Projection Tree. It stores the
@@ -66,91 +64,74 @@ int arr_intersect(Iter0 first0, Iter0 last0, Iter1 first1, Iter1 last1)
  */
 struct RPTNode
 {
-    /**
+
+    /*
      * Index of the left child node.
      */
     int left;
 
-
-    /**
+    /*
      * Index of the right child node.
      */
     int right;
 
-
-    /**
+    /*
      * Hyperplane offset.
      */
     float offset;
 
-
-    /**
+    /*
      * Indices of hyperplane used for sparse matrices.
      */
     std::vector<size_t> hyperplane_ind;
 
-
-    /**
+    /*
      * Hyperplane for random projecton split at current node.
      */
     std::vector<float> hyperplane;
 
-
-    /**
+    /*
      * Contains the indices of a leaf or is empty for non-leave nodes.
      */
     std::vector<int> indices;
 
-
-    /**
-     * @brief Constructs an RPTNode object.
-     *
-     * @param left Index of the left child node.
-     * @param right Index of the right child node.
-     * @param offset Hyperplane offset value for splitting the node.
-     * @param hyperplane Hyperplane for splitting the node.
-     * @param indices Indices associated with the node.
+    /*
+     * @brief Constructs an RPTNode object for dense input data.
      */
     RPTNode(
         int left,
         int right,
         float offset,
-        std::vector<float> hyperplane,
-        std::vector<int> indices
+        const std::vector<float> &hyperplane,
+        const std::vector<int> &indices
     )
-    : left(left)
-    , right(right)
-    , offset(offset)
-    , hyperplane(hyperplane)
-    , indices(indices)
-    {}
+        : left(left)
+        , right(right)
+        , offset(offset)
+        , hyperplane(hyperplane)
+        , indices(indices)
+    {
+    }
 
-
-    /**
-     * @brief Constructs an RPTNode object.
-     *
-     * @param left Index of the left child node.
-     * @param right Index of the right child node.
-     * @param offset Hyperplane offset value for splitting the node.
-     * @param hyperplane Hyperplane for splitting the node.
-     * @param hyperplane_ind Indices of hyperplane for sparse input data.
-     * @param indices Indices associated with the node.
+    /*
+     * @brief Constructs an RPTNode object for sparse input data.
      */
     RPTNode(
         int left,
         int right,
         float offset,
-        std::vector<size_t> hyperplane_ind,
-        std::vector<float> hyperplane,
-        std::vector<int> indices
+        const std::vector<size_t> &hyperplane_ind,
+        const std::vector<float> &hyperplane,
+        const std::vector<int> &indices
     )
-    : left(left)
-    , right(right)
-    , offset(offset)
-    , hyperplane_ind(hyperplane_ind)
-    , hyperplane(hyperplane)
-    , indices(indices)
-    {}
+        : left(left)
+        , right(right)
+        , offset(offset)
+        , hyperplane_ind(hyperplane_ind)
+        , hyperplane(hyperplane)
+        , indices(indices)
+    {
+    }
 };
 
 
@@ -159,42 +140,41 @@ struct RPTNode
  */
 class RPTree
 {
+
 private:
+
 public:
+
     /*
      * The maximum number of points in a leaf node.
      */
     size_t leaf_size;
-
 
     /*
      * The number of leaf nodes in the tree.
      */
     size_t n_leaves;
 
-
     /*
      * The nodes of the tree.
      */
     std::vector<RPTNode> nodes;
 
-
-    /**
+    /*
      * @brief Default constructor builds an empty tree.
      */
     RPTree() {}
 
-
-    /**
-     * @brief Constructor an rp tree with fixed leaf size.
+    /*
+     * @brief Constructs an rp tree with fixed leaf size.
      */
-    RPTree(size_t leaf_size)
+    explicit RPTree(size_t leaf_size)
         : leaf_size(leaf_size)
         , n_leaves(0)
-        {}
+    {
+    }
 
-
-    /**
+    /*
      * @brief Add a leaf node to the tree.
      * @param indices The indices of the data points in the leaf node.
      */
@@ -205,9 +185,9 @@ public:
         ++n_leaves;
     }
 
-
-    /**
+    /*
      * @brief Get the index of the last added node.
+     *
      * @return The index of the last added node.
      */
     size_t get_index() const
@@ -215,17 +195,10 @@ public:
         return nodes.size() - 1;
     }
 
-
-    /**
+    /*
      * @brief Add an internal node to the tree, containing no indices.
-     *
-     * @param left_subtree The index of the left subtree.
-     * @param right_subtree The index of the right subtree.
-     * @param offset The offset value of the hyperplane.
-     * @param hyperplane The hyperplane vector.
      */
-    void add_node
-    (
+    void add_node(
         size_t left_subtree,
         size_t right_subtree,
         float offset,
@@ -236,18 +209,11 @@ public:
         nodes.push_back(node);
     }
 
-
-    /**
-     * @brief Add an internal node to the tree, containing no indices.
-     *
-     * @param left_subtree The index of the left subtree.
-     * @param right_subtree The index of the right subtree.
-     * @param offset The offset value of the hyperplane.
-     * @param hyperplane_ind The incides of 'hyperplane' (sparse case).
-     * @param hyperplane The hyperplane vector.
+    /*
+     * @brief Add an internal node to the tree, containing no indices (sparse
+     * case).
      */
-    void add_node
-    (
+    void add_node(
         size_t left_subtree,
         size_t right_subtree,
         float offset,
@@ -255,8 +221,7 @@ public:
         std::vector<float> &hyperplane
     )
     {
-        RPTNode node
-        (
+        RPTNode node(
             left_subtree,
             right_subtree,
             offset,
@@ -267,25 +232,32 @@ public:
         nodes.push_back(node);
     }
 
-
     /**
      * @brief Perform a nearest neighbor query on the tree.
      *
-     * @param query_point The query point.
+     * @param query_data The query data containing the query point.
+     * @param row The index of the query point in the query data.
      * @param rng_state The random state used for generating random numbers.
+     *
      * @return The indices of the nearest neighbors.
      */
     template<class MatrixType>
-    std::vector<int> get_leaf
-    (
+    std::vector<int> get_leaf(
         const MatrixType &query_data,
         size_t row,
         RandomState &rng_state
     ) const;
 
-    std::vector<int> get_leaf
-    (
-        float *query_point,
+    /*
+     * @brief Perform a nearest neighbor query on the tree.
+     *
+     * @param query_data Pointer to the beginning of the query point.
+     * @param rng_state The random state used for generating random numbers.
+     *
+     * @return The indices of the nearest neighbors.
+     */
+    std::vector<int> get_leaf(
+        float *query_data,
         RandomState &rng_state
     ) const
     {
@@ -298,7 +270,7 @@ public:
             float margin = std::inner_product(
                 hyperplane_vector.begin(),
                 hyperplane_vector.end(),
-                query_point,
+                query_data,
                 -hyperplane_offset
             );
 
@@ -322,9 +294,21 @@ public:
         return nodes[index].indices;
     }
 
-
-    std::vector<int> get_leaf
-    (
+    /*
+     * @brief Perform a nearest neighbor query on the tree (sparse version).
+     *
+     * @param query_first_ind Pointer to the beginning of the array containing
+     * the CSR indices of the query point.
+     * @param query_last_ind Pointer to the end of the array containing the CSR
+     * indices of the query points.
+     * @param query_data Pointer to the beginning of the array containing the
+     * CSR data of the query point.
+     * query point data.
+     * @param rng_state The random state used for generating random numbers.
+     *
+     * @return The indices of the nearest neighbors.
+     */
+    std::vector<int> get_leaf(
         size_t *query_first_ind,
         size_t *query_last_ind,
         float *query_data,
@@ -368,15 +352,14 @@ public:
         return nodes[index].indices;
     }
 
-
-     /**
+    /*
      * @brief Calculate the score of the tree in comparison to the nearest
      * neighbor graph.
      *
      * This function calculates the score of the tree by comparing it to a
      * nearest neighbor graph. Note that this function is currently not used as
      * the scores in a forest are very close to each other, and calculating
-     * scores can be time-consuming.
+     * scores is time-consuming.
      */
     float score(Matrix<int> &nn_graph) const
     {
@@ -386,15 +369,12 @@ public:
         {
             for (const int &idx : node.indices)
             {
-                int intersection = arr_intersect
-                (
+                int intersection = arr_intersect(
                     node.indices.begin(),
                     node.indices.end(),
                     nn_graph.begin(idx),
                     nn_graph.end(idx)
                 );
-                std::vector<int>i=node.indices;
-                std::vector<int>n(nn_graph.begin(idx), nn_graph.end(idx));
                 if (intersection > 1)
                 {
                     ++hits;
@@ -403,10 +383,11 @@ public:
         }
         return ((float) hits) / nn_graph.nrows();
     }
+
 };
 
 
-/**
+/*
  * @brief Performs a random projection tree split.
  *
  * This function performs a random projection tree split on the given data
@@ -414,13 +395,11 @@ public:
  * that goes through the midpoint between the two points and is normal to their
  * difference.
  *
- * @tparam SplitType The split type to use for the split, which can be
- * either Euclidean or Angular.
+ * @tparam SplitType The split type to use for the split, which can be either
+ * EuclideanSplit or AngularSplit.
  *
  * @param data The input data matrix.
- *
  * @param indices The indices of the data points to perform the split on.
- *
  * @param rng_state The random state used for generating random numbers.
  *
  * @return A tuple containing the left child indices, right child indices,
@@ -428,32 +407,48 @@ public:
  */
 template<class SplitType>
 std::tuple<std::vector<int>, std::vector<int>, std::vector<float>, float>
-random_projection_split
-(
+random_projection_split(
     const Matrix<float> &data,
-    IntVec &indices,
+    std::vector<int> &indices,
     RandomState &rng_state
 );
 
 
+/*
+ * @brief Performs a random projection tree split (sparse version).
+ *
+ * This function performs a random projection tree split on the given data
+ * indices by selecting two points at random and splitting along the hyperplane
+ * that goes through the midpoint between the two points and is normal to their
+ * difference.
+ *
+ * @tparam SplitType The split type to use for the split, which can be either
+ * EuclideanSplit or AngularSplit.
+ *
+ * @param data The input sparse CSR matrix.
+ * @param indices The indices of the data points to perform the split on.
+ * @param rng_state The random state used for generating random numbers.
+ *
+ * @return A tuple containing the left child indices, right child indices,
+ * hyperplane normal vector CSR-indices, hyperplane normal vector CSR-data, and
+ * hyperplane offset.
+ */
 template<class SplitType>
-std::tuple
-<
+std::tuple<
     std::vector<int>,
     std::vector<int>,
     std::vector<size_t>,
     std::vector<float>,
     float
 >
-sparse_random_projection_split
-(
+sparse_random_projection_split(
     const CSRMatrix<float> &data,
-    IntVec &indices,
+    std::vector<int> &indices,
     RandomState &rng_state
 );
 
 
-/**
+/*
  * @brief Builds a random projection tree by recursively splitting.
  *
  * This function builds a random projection tree by recursively splitting the
@@ -461,6 +456,7 @@ sparse_random_projection_split
  *
  * @tparam SplitType The split type to use for the split.
  * @tparam MatrixType The matrix type (either dense or sparse).
+ *
  * @param rp_tree The random projection tree object to build.
  * @param data The input data matrix.
  * @param indices The indices of the data points to consider for splitting.
@@ -469,11 +465,10 @@ sparse_random_projection_split
  * @param max_depth The maximum depth of the tree (default: 100).
  */
 template<class SplitType, class MatrixType>
-void build_rp_tree_recursively
-(
+void build_rp_tree_recursively(
     RPTree &rp_tree,
     const MatrixType &data,
-    IntVec indices,
+    std::vector<int> indices,
     unsigned int leaf_size,
     RandomState &rng_state,
     int max_depth=100
@@ -481,11 +476,10 @@ void build_rp_tree_recursively
 
 
 template<class SplitType>
-void build_rp_tree_recursively
-(
+void build_rp_tree_recursively(
     RPTree &rp_tree,
     const Matrix<float> &data,
-    IntVec indices,
+    std::vector<int> indices,
     unsigned int leaf_size,
     RandomState &rng_state,
     int max_depth=100
@@ -510,18 +504,15 @@ void build_rp_tree_recursively
     std::vector<float> hyperplane;
     float offset;
 
-    std::tie
-    (
+    std::tie(
         left_indices, right_indices, hyperplane, offset
-    ) = random_projection_split<SplitType>
-    (
+    ) = random_projection_split<SplitType>(
         data,
         indices,
         rng_state
     );
 
-    build_rp_tree_recursively<SplitType>
-    (
+    build_rp_tree_recursively<SplitType>(
         rp_tree,
         data,
         left_indices,
@@ -532,8 +523,7 @@ void build_rp_tree_recursively
 
     size_t left_subtree = rp_tree.get_index();
 
-    build_rp_tree_recursively<SplitType>
-    (
+    build_rp_tree_recursively<SplitType>(
         rp_tree,
         data,
         right_indices,
@@ -548,11 +538,10 @@ void build_rp_tree_recursively
 
 
 template<class SplitType>
-void build_rp_tree_recursively
-(
+void build_rp_tree_recursively(
     RPTree &rp_tree,
     const CSRMatrix<float> &data,
-    IntVec indices,
+    std::vector<int> indices,
     unsigned int leaf_size,
     RandomState &rng_state,
     int max_depth=100
@@ -578,18 +567,15 @@ void build_rp_tree_recursively
     std::vector<float> hyperplane_data;
     float offset;
 
-    std::tie
-    (
+    std::tie(
         left_indices, right_indices, hyperplane_ind, hyperplane_data, offset
-    ) = sparse_random_projection_split<SplitType>
-    (
+    ) = sparse_random_projection_split<SplitType>(
         data,
         indices,
         rng_state
     );
 
-    build_rp_tree_recursively<SplitType>
-    (
+    build_rp_tree_recursively<SplitType>(
         rp_tree,
         data,
         left_indices,
@@ -600,8 +586,7 @@ void build_rp_tree_recursively
 
     size_t left_subtree = rp_tree.get_index();
 
-    build_rp_tree_recursively<SplitType>
-    (
+    build_rp_tree_recursively<SplitType>(
         rp_tree,
         data,
         right_indices,
@@ -617,22 +602,23 @@ void build_rp_tree_recursively
 }
 
 
-/**
+/*
  * @brief Builds a random projection tree.
  *
  * This function builds a random projection tree. The tree partitions the data
  * points into leaves using random projections.
  *
- * @param data The input data matrix.
  * @tparam MatrixType The matrix type (either dense or sparse).
+ *
+ * @param data The input data matrix.
  * @param leaf_size The maximum number of points in a leaf.
  * @param rng_state The random state used for generating random numbers.
  * @param angular Specifies whether to use angular split (default: false).
+ *
  * @return The constructed random projection tree.
  */
 template<class MatrixType>
-RPTree build_rp_tree
-(
+RPTree build_rp_tree(
     const MatrixType &data,
     unsigned int leaf_size,
     RandomState &rng_state,
@@ -641,7 +627,7 @@ RPTree build_rp_tree
 {
     RPTree rp_tree(leaf_size);
 
-    IntVec all_points (data.nrows());
+    std::vector<int> all_points (data.nrows());
     // all_points = [0,1,2,...]
     std::iota(all_points.begin(), all_points.end(), 0);
     if (angular)
@@ -672,20 +658,21 @@ RPTree build_rp_tree
 /**
  * @brief Builds a forest of random projection trees.
  *
- * This function builds a vector of random projection trees.  The forest
+ * This function builds a vector of random projection trees. The forest
  * consists of multiple random projection trees, each constructed
  * independently.
  *
  * @tparam MatrixType The matrix type (either dense or sparse).
+ *
  * @param data The input data matrix.
  * @param n_trees The number of trees in the forest.
  * @param leaf_size The maximum number of points in a leaf node for each tree.
  * @param rng_state The random state used for generating random numbers.
+ *
  * @return The constructed forest of random projection trees.
  */
 template<class MatrixType>
-std::vector<RPTree> make_forest
-(
+std::vector<RPTree> make_forest(
     const MatrixType &data,
     int n_trees,
     int leaf_size,
@@ -708,21 +695,20 @@ std::vector<RPTree> make_forest
 }
 
 
-
-/**
+/*
  * @brief Extracts the leaves from a random projection tree forest.
  *
  * This function extracts the 'leaves', which are sets of indices of maximal
  * size 'leaf_size', from a random projection tree forest and puts them into a
- * more cache-friendly data structure.  The resulting matrix has dimensions
+ * more cache-friendly data structure. The resulting matrix has dimensions
  * 'n_leaves' x 'leaf_size'. If a leaf has fewer than 'leaf_size' elements, the
- * remaining elements in the row are filled with a special value (e.g., NONE).
+ * remaining elements in the row are filled with the special value 'NONE'.
  *
  * @param forest The random projection tree forest.
+ *
  * @return A matrix containing the extracted leaves.
  */
-Matrix<int> get_leaves_from_forest
-(
+Matrix<int> get_leaves_from_forest(
     std::vector<RPTree> &forest
 );
 
@@ -737,7 +723,6 @@ std::ostream& operator<<(std::ostream &out, const RPTNode &node);
  * @brief Prints a RPTree object to an output stream.
  */
 std::ostream& operator<<(std::ostream &out, const RPTree &tree);
-
 
 
 } // namespace nndescent

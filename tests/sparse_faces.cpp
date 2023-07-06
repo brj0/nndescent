@@ -3,14 +3,17 @@
  * debugging.
  */
 
+
 #include <fstream>
 
 #include "../src/nnd.h"
 
 using namespace nndescent;
 
+
 // Timer for returning passed time in milliseconds.
 Timer test_timer;
+
 
 // Read csv from disk and return as nndescent::Matrix.
 Matrix<float> read_csv(std::string file_path)
@@ -49,6 +52,7 @@ Matrix<float> read_csv(std::string file_path)
     return matrix;
 }
 
+
 int main()
 {
     // DATA INPUT
@@ -71,7 +75,6 @@ int main()
     CSRMatrix<float> csr_query_data(query_data);
 
     test_timer.stop("Reading csv");
-
 
 
     // NEAREST NEIGHBORS - TRAINING
@@ -110,7 +113,6 @@ int main()
     recall_accuracy(nn_indices, nn_indices_ect);
 
 
-
     // NEAREST NEIGHBORS - TESTING
 
     const int k_query = 10;
@@ -142,4 +144,3 @@ int main()
 
     return 0;
 }
-

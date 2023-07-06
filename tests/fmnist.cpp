@@ -2,14 +2,17 @@
  * ANN Benchmark example of dimension 60'000x784 (train) and 10'000x784 (test)
  */
 
+
 #include <fstream>
 
 #include "../src/nnd.h"
 
 using namespace nndescent;
 
+
 // Timer for returning passed time in milliseconds.
 Timer test_timer;
+
 
 // Read csv from disk and return as Matrix.
 template <class T>
@@ -33,7 +36,6 @@ Matrix<T> read_csv(std::string file_path)
     while (std::getline(csv_file, line))
     {
         ++n_rows;
-        std::vector<T> row;
         std::stringstream ss_line(line);
         while (ss_line.good())
         {
@@ -48,6 +50,7 @@ Matrix<T> read_csv(std::string file_path)
 
     return matrix;
 }
+
 
 int main()
 {
@@ -73,7 +76,6 @@ int main()
     test_timer.stop("Reading csv");
 
 
-
     // NEAREST NEIGHBORS - TRAINING
 
     // Define algorithm parameters
@@ -94,7 +96,6 @@ int main()
     Matrix<float> nn_distances = nnd.neighbor_distances;
 
     test_timer.start();
-
 
 
     // NEAREST NEIGHBORS - TESTING
@@ -124,7 +125,6 @@ int main()
             nn_query_indices_ect(i, j) = query_result(i, j + 1);
         }
     }
-
 
     // Calculate accuracy of NNDescent.
     std::cout << "Accuracy of NN query data:\n";

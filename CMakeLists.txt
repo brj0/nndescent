@@ -6,9 +6,14 @@ project(nndescent
     DESCRIPTION "A C++ implementation of the nearest neighbour descent algorithm")
 
 set(CMAKE_CXX_STANDARD 11)
+
+# Standard mode including all distance functions (slow)
 set(CMAKE_CXX_FLAGS
-    # "-Wall -g -pg -Ofast -DALL_METRICS -march=native -flto -fno-math-errno -fopenmp -pg")
-    "-Wall -g -pg -Ofast -march=native -flto -fno-math-errno -fopenmp -pg")
+    "-Wall -g -pg -Ofast -DALL_METRICS -march=native -flto -fno-math-errno -fopenmp -pg")
+
+# Debug compile mode (only euclidean/cosine)
+# set(CMAKE_CXX_FLAGS
+    # "-Wall -g -pg -Ofast -march=native -flto -fno-math-errno -fopenmp -pg")
 
 # Collect source files
 file(GLOB_RECURSE SRC_FILES src/*.cpp)

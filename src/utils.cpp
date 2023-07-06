@@ -5,8 +5,6 @@
  */
 
 
-#include <chrono>
-
 #include "utils.h"
 
 
@@ -14,7 +12,7 @@ namespace nndescent
 {
 
 
-/**
+/*
  * @brief Random number generator used for seeding.
  *
  * @see https://prng.di.unimi.it/splitmix64.c
@@ -71,7 +69,7 @@ float rand_float(RandomState &s)
 }
 
 
-void log(std::string text, bool verbose)
+void log(const std::string &text, bool verbose)
 {
     if (!verbose)
     {
@@ -92,5 +90,6 @@ std::ostream& operator<<(std::ostream& out, const RandomState& state)
     out << ")";
     return out;
 }
+
 
 } // namespace nndescent

@@ -82,16 +82,27 @@ void throw_exception_if_sparse(std::string metric, bool is_sparse);
  * by using the provided distance correction function to adjust the distances
  * calculated using the alternative form.
  *
- * @param distance_correction The distance correction function to be applied.
+ * @param dist The distance function containing a correction function.
  * @param in The input matrix of distances to be corrected.
  * @param out The output matrix of corrected distances.
  */
-void correct_distances
-(
-    Function1d distance_correction,
+template<class DistType>
+void correct_distances(
+    DistType &dist,
     Matrix<float> &in,
     Matrix<float> &out
-);
+)
+{
+    out.resize(in.nrows(), in.ncols());
+    for (size_t i = 0; i < in.nrows(); ++i)
+    {
+        for (size_t j = 0; j < in.ncols(); ++j)
+        {
+            out(i, j) = dist.correction(in(i,j));
+        }
+    }
+    return;
+}
 
 
 /**
@@ -105,6 +116,7 @@ void correct_distances
  *
  * @param apx The matrix representing approximate nearest neighbors.
  * @param ect The matrix representing exact nearest neighbors.
+ *
  * @return The recall accuracy between the matrices.
  */
 float recall_accuracy(Matrix<int> apx, Matrix<int> ect);
@@ -148,6 +160,7 @@ struct Parms
 class NNDescent
 {
 private:
+
     /*
      * The training data matrix.
      */
@@ -368,10 +381,10 @@ public:
      * This constructor initializes and starts an instance of the NNDescent
      * algorithm with the given input data and parameters.
      *
-     * @param input_data The input data matrix.
+     * @param train_data The input data matrix.
      * @param parms The parameters for the NNDescent algorithm.
      */
-    NNDescent(Matrix<float> &input_data, Parms &parms);
+    NNDescent(Matrix<float> &train_data, Parms &parms);
 
     /**
      * @brief Construct an instance of NNDescent.
@@ -379,64 +392,41 @@ public:
      * This constructor initializes and starts an instance of the NNDescent
      * algorithm with the given input data and parameters.
      *
-     * @param input_data The input data matrix.
+     * @param train_data The input data matrix.
      * @param parms The parameters for the NNDescent algorithm.
      */
-    NNDescent(CSRMatrix<float> &input_data, Parms &parms);
+    NNDescent(CSRMatrix<float> &train_data, Parms &parms);
 
-    /**
+    /*
      * @brief Set the parameters for NNDescent.
-     *
-     * This function allows setting the parameters for the NNDescent algorithm.
-     *
-     * @param parms The parameters to be set.
      */
     void set_parameters(Parms &parms);
 
-    /**
+    /*
      * @brief Sets the distance template and performs either NN algorithm
      * indexing/training or a query.
      *
      * Sets the distance template based on the specified metric and performs
      * either NN algorithm indexing or starts a query, depending on the
-     * `perform_query` flag.
-     *
-     * @tparam MatrixType Type of the input data matrix.
-     *
-     * @param perform_query Flag for performing a query (default: false).
-     * @param query_data Query data matrix (default: empty matrix).
-     * @param query_k Desired number of nearest neighbors for the query
-     * (default: 0).
-     * @param query_epsilon Epsilon value for the query (default: 0).
+     * 'perform_query' flag.
      */
     template<class MatrixType>
-    void set_dist_and_start_nn
-    (
+    void set_dist_and_start_nn(
         bool perform_query=false,
         const MatrixType &query_data=MatrixType(),
         int query_k=0,
         float query_epsilon=0
     );
 
-    /**
+    /*
      * @brief Starts the nearest neighbor search algorithm.
      *
      * This function starts the nearest neighbor search algorithm using the
      * specified distance metric and performs either indexing/training or a
      * query based on the 'perform_query' flag.
-     *
-     * @tparam MatrixType Type of the input data matrix.
-     * @tparam DistType Type of the distance metric.
-     *
-     * @param dist Reference to the distance metric object.
-     * @param perform_query Flag for performing a query.
-     * @param query_data Query data matrix.
-     * @param query_k Desired number of nearest neighbors for the query.
-     * @param query_epsilon Epsilon value for query NN search.
      */
     template<class MatrixType, class DistType>
-    void start_nn
-    (
+    void start_nn(
         DistType &dist,
         bool perform_query,
         const MatrixType &query_data,
@@ -444,91 +434,105 @@ public:
         float query_epsilon
     );
 
-    template<class MatrixType, class DistType>
-    void nnd_algorithm(MatrixType &train_data, DistType &dist);
-
-
-    /**
-     * @brief Perform k-nearest neighbors search using brute force for
-     * debugging purposes.
-     *
-     * This function performs k-nearest neighbors search using brute force
-     * method, which involves computing distances between all pairs of points
-     * in the data.  It is used for debugging purposes to compare the results
-     * with the approximate nearest neighbors obtained by the NNDescent
-     * algorithm.
-     *
+    /*
+     * @brief Performs the NN-d algorithm for nearest neighbor search on the
+     * training data.
      */
     template<class MatrixType, class DistType>
-    void start_brute_force(const MatrixType &mtx_data, const DistType &dist);
+    void run_nn_descent(const MatrixType &train_data, const DistType &dist);
 
-    /**
-    * @brief Prepare the NNDescent object for querying.
-    *
-    * This function is invoked the first time 'query()' is called to construct
-    * a 'search_tree' and a 'pruned search_graph'.
-    */
+    /*
+     * @brief Perform k-nearest neighbors search using brute force, used for
+     * debugging purposes.
+     */
+    template<class MatrixType, class DistType>
+    void start_brute_force(const MatrixType &train_data, const DistType &dist);
+
+    /*
+     * @brief Prepare the NNDescent object for querying.
+     *
+     * This function is invoked the first time 'query' is called to construct
+     * a 'search_tree' and a 'pruned search_graph'.
+     */
     template<class DistType>
     void prepare(const DistType &dist);
+
+    /*
+     * @brief Query the training data for the k nearest neighbors.
+     *
+     * This function is called by the main 'query' function with the appropriate
+     * types for MatrixType and DistType. It performs the actual querying of the
+     * training data for the k nearest neighbors of the provided query points.
+     * The indices and distances of the nearest neighbors are saved in the
+     * respective member variables: query_indices and query_distances.
+     *
+     * @param train_data Matrix of training data points.
+     * @param query_data Matrix of query points.
+     * @param dist Distance metric object.
+     * @param k Number of nearest neighbors to return.
+     * @param epsilon Controls the trade-off between accuracy and search cost.
+     * Larger values produce more accurate results at larger computational
+     * cost. Values should be in the range 0.0 to 0.5, but typically not exceed
+     * 0.3 without good reason.
+     */
+    template<class MatrixType, class DistType>
+    void query(
+        const MatrixType &train_data,
+        const MatrixType &query_data,
+        DistType &dist,
+        int k,
+        float epsilon
+    );
 
     /**
      * @brief Query the training data for the k nearest neighbors.
      *
      * This function queries the training data for the k nearest neighbors of
      * the provided query points and saves the indices and distances in the
-     * respective member variables query_indices and query_distances.
+     * respective member variables 'query_indices' and 'query_distances'.
      *
-     * @param input_query_data A matrix of points to query. It should have the shape
-     * (input_query_data.size(), self.data.ncols()).
+     * @param query_data A matrix of points to query. It should have the
+     * the same number of columns as 'self.data'.
      *
      * @param k The number of nearest neighbors to return (default: 10).
-     *
      * @param epsilon Controls the trade-off between accuracy and search cost.
-     * Larger values produce more accurate results at larger computational cost.
-     * Values should be in the range 0.0 to 0.5, but typically not exceed 0.3
-     * without good reason (default: 0.1).
+     * Larger values produce more accurate results at larger computational
+     * cost.  Values should be in the range 0.0 to 0.5, but typically not
+     * exceed 0.3 without good reason (default: 0.1).
      */
-    template<class MatrixType, class DistType>
-    void query(
-        const MatrixType &input_data,
-        const MatrixType &input_query_data,
-        DistType &dist,
-        int k,
-        float epsilon
-    );
-
     template<class MatrixType>
     void query(
-        const MatrixType &input_query_data,
+        const MatrixType &query_data,
         int k=DEFAULT_K,
         float epsilon=DEFAULT_EPSILON
     );
 
-    /**
+    /*
      * @brief Perform k-nearest neighbors search using brute force for query
      * data.
-     *
-     * This function performs k-nearest neighbors search using brute force
-     * method for a given query data. It computes distances between each query
-     * point and all points in the data to find their k-nearest neighbors and
-     * saves the indices and distances in the respective member variables
-     * query_indices and query_distances. It is used for debugging purposes to
-     * compare the results with the approximate nearest neighbors obtained by
-     * the NNDescent algorithm.
-     *
-     * @param query_data The query data for which k-nearest neighbors need to
-     * be found.
-     *
-     * @param k The number of nearest neighbors to be returned.
      */
     template<class MatrixType, class DistType>
-    void query_brute_force
-    (
-        const MatrixType &input_data,
+    void query_brute_force(
+        const MatrixType &train_data,
         const MatrixType &query_data,
         const DistType &dist,
         int k
     );
+
+    /*
+     * @brief Get the data matrix.
+     *
+     * This function returns a pointer to the data matrix. The type of the matrix
+     * returned depends on whether the data is dense or sparse. If the data is dense,
+     * the function returns a pointer to the dense data matrix. If the data is sparse,
+     * the function returns a pointer to the compressed sparse row (CSR) data matrix.
+     *
+     * @tparam MatrixType The type of the data matrix (dense or sparse).
+ *
+     * @return A pointer to the data matrix.
+     */
+    template<class MatrixType>
+    MatrixType* get_data();
 
     /*
      * @brief Prints a the parameters of an NNDescent object to an output
@@ -536,45 +540,40 @@ public:
      */
     friend std::ostream& operator<<(std::ostream &out, const NNDescent &nnd);
 
-    template<class MatrixType>
-    MatrixType* get_data();
 };
 
 
 template<class MatrixType, class DistType>
-void NNDescent::query_brute_force
-(
-    const MatrixType &input_data,
+void NNDescent::query_brute_force(
+    const MatrixType &train_data,
     const MatrixType &query_data,
     const DistType &dist,
     int k
 )
 {
-    // MatrixType *data_ptr = this->get_data<MatrixType>();
     HeapList<float> query_nn(query_data.nrows(), k, FLOAT_MAX);
     ProgressBar bar(query_data.nrows(), verbose);
     #pragma omp parallel for num_threads(n_threads)
     for (size_t idx_q = 0; idx_q < query_data.nrows(); ++idx_q)
     {
         bar.show();
-        for (size_t idx_d = 0; idx_d < data_size; ++idx_d)
+        for (size_t idx_t = 0; idx_t < data_size; ++idx_t)
         {
-            float d = dist(input_data, idx_d, query_data, idx_q);
-            query_nn.checked_push(idx_q, idx_d, d);
+            float d = dist(train_data, idx_t, query_data, idx_q);
+            query_nn.checked_push(idx_q, idx_t, d);
         }
     }
     query_nn.heapsort();
     query_indices = query_nn.indices;
     query_distances = query_nn.keys;
     correct_distances(
-        dist.correction, query_distances, query_distances
+        dist, query_distances, query_distances
     );
 }
 
 
 template<class MatrixType, class DistType>
-void NNDescent::start_nn
-(
+void NNDescent::start_nn(
     DistType &dist,
     bool perform_query,
     const MatrixType &query_data,
@@ -582,33 +581,20 @@ void NNDescent::start_nn
     float query_epsilon
 )
 {
-    if (perform_query && is_sparse)
+    MatrixType *data_ptr = this->get_data<MatrixType>();
+    if (perform_query)
     {
-        MatrixType *data_ptr = this->get_data<MatrixType>();
-        query(*data_ptr, query_data, dist, query_k, query_epsilon);
-    }
-    else if (perform_query && !is_sparse)
-    {
-        MatrixType *data_ptr = this->get_data<MatrixType>();
         query(*data_ptr, query_data, dist, query_k, query_epsilon);
     }
     else
     {
-        if  (is_sparse)
-        {
-            this->nnd_algorithm(csr_data, dist);
-        }
-        else
-        {
-            this->nnd_algorithm(data, dist);
-        }
+        run_nn_descent(*data_ptr, dist);
     }
 }
 
 
 template<class MatrixType>
-void NNDescent::set_dist_and_start_nn
-(
+void NNDescent::set_dist_and_start_nn(
     bool perform_query,
     const MatrixType &query_data,
     int query_k,
@@ -623,7 +609,7 @@ void NNDescent::set_dist_and_start_nn
     }
     else if (metric == "euclidean")
     {
-        Euclidean dist(std::sqrt);
+        Euclidean dist;
         start_nn(dist, perform_query, query_data, query_k, query_epsilon);
     }
 
@@ -639,6 +625,11 @@ void NNDescent::set_dist_and_start_nn
     else if (metric == "alternative_dot")
     {
         AltDot dist;
+        start_nn(dist, perform_query, query_data, query_k, query_epsilon);
+    }
+    else if (metric == "alternative_jaccard")
+    {
+        AltJaccard dist;
         start_nn(dist, perform_query, query_data, query_k, query_epsilon);
     }
     else if (metric == "braycurtis")
@@ -673,7 +664,6 @@ void NNDescent::set_dist_and_start_nn
     }
     else if (metric == "haversine")
     {
-        Haversine dist;
         throw_exception_if_sparse(metric, is_sparse);
         if (data_dim != 2)
         {
@@ -681,6 +671,7 @@ void NNDescent::set_dist_and_start_nn
                 "haversine is only defined for 2 dimensional graph_data"
             );
         }
+        Haversine dist;
         start_nn(dist, perform_query, query_data, query_k, query_epsilon);
     }
     else if (metric == "hellinger")
@@ -710,8 +701,8 @@ void NNDescent::set_dist_and_start_nn
     }
     else if (metric == "spearmanr")
     {
-        SpearmanR dist;
         throw_exception_if_sparse(metric, is_sparse);
+        SpearmanR dist;
         start_nn(dist, perform_query, query_data, query_k, query_epsilon);
     }
     else if (metric == "sqeuclidean")
@@ -730,12 +721,11 @@ void NNDescent::set_dist_and_start_nn
         start_nn(dist, perform_query, query_data, query_k, query_epsilon);
     }
 
-
     // METRICS WITH ONE FLOAT PARAMETER
     else if (metric == "circular_kantorovich")
     {
-        CircularKantorovich dist(p_metric);
         throw_exception_if_sparse(metric, is_sparse);
+        CircularKantorovich dist(p_metric);
         start_nn(dist, perform_query, query_data, query_k, query_epsilon);
     }
     else if (metric == "minkowski")
@@ -745,11 +735,10 @@ void NNDescent::set_dist_and_start_nn
     }
     else if (metric == "wasserstein_1d")
     {
-        Wasserstein dist(p_metric);
         throw_exception_if_sparse(metric, is_sparse);
+        Wasserstein dist(p_metric);
         start_nn(dist, perform_query, query_data, query_k, query_epsilon);
     }
-
 
     // METRICS WHERE THE SPARSE VERSION NEEDS KNOWLEDGE OF THE DIMENSION
     else if (metric == "correlation")
@@ -774,7 +763,7 @@ void NNDescent::set_dist_and_start_nn
     }
     else if (metric == "russellrao")
     {
-        Russelrao dist(data_dim);
+        RussellRao dist(data_dim);
         start_nn(dist, perform_query, query_data, query_k, query_epsilon);
     }
     else if (metric == "sokalmichener")
@@ -784,7 +773,7 @@ void NNDescent::set_dist_and_start_nn
     }
     else if (metric == "symmetric_kl")
     {
-        SymmetriyKlDiv dist(data_dim);
+        SymmetriyKL dist(data_dim);
         start_nn(dist, perform_query, query_data, query_k, query_epsilon);
     }
     else if (metric == "yule")
@@ -803,37 +792,36 @@ void NNDescent::set_dist_and_start_nn
 
 
 template<class MatrixType>
-void NNDescent::query
-(
-    const MatrixType &input_query_data,
+void NNDescent::query(
+    const MatrixType &query_data,
     int k,
     float epsilon
 )
 {
-    set_dist_and_start_nn(true, input_query_data, k, epsilon);
+    set_dist_and_start_nn(true, query_data, k, epsilon);
 }
 
 
 template<class MatrixType, class DistType>
 void NNDescent::query(
-    const MatrixType &input_data,
-    const MatrixType &input_query_data,
+    const MatrixType &train_data,
+    const MatrixType &query_data,
     DistType &dist,
     int k,
     float epsilon
 )
 {
     // Make shure original data cannot be modified.
-    MatrixType query_data = input_query_data;
+    MatrixType _query_data = query_data;
     if (metric == "dot")
     {
-        query_data.deep_copy();
-        query_data.normalize();
+        _query_data.deep_copy();
+        _query_data.normalize();
     }
 
     if (algorithm == "bf")
     {
-        query_brute_force(input_data, query_data, dist, k);
+        query_brute_force(train_data, _query_data, dist, k);
         return;
     }
     // Check if search_graph already prepared.
@@ -841,7 +829,7 @@ void NNDescent::query(
     {
         prepare(dist);
     }
-    HeapList<float> query_nn(query_data.nrows(), k, FLOAT_MAX);
+    HeapList<float> query_nn(_query_data.nrows(), k, FLOAT_MAX);
     for (size_t i = 0; i < query_nn.nheaps(); ++i)
     {
 
@@ -849,12 +837,12 @@ void NNDescent::query(
         Heap<Candidate> search_candidates;
         std::vector<int> visited(data_size, 0);
         std::vector<int> initial_candidates = search_tree.get_leaf(
-            query_data, i, rng_state
+            _query_data, i, rng_state
         );
 
         for (auto const &idx : initial_candidates)
         {
-            float d = dist(input_data, idx, query_data, i);
+            float d = dist(train_data, idx, _query_data, i);
             // Don't need to check as indices are guaranteed to be different.
             // TODO implement push without check.
             query_nn.checked_push(i, idx, d);
@@ -867,7 +855,7 @@ void NNDescent::query(
             int idx = rand_int(rng_state) % data_size;
             if (!visited[idx])
             {
-                float d = dist(input_data, idx, query_data, i);
+                float d = dist(train_data, idx, _query_data, i);
                 query_nn.checked_push(i, idx, d);
                 visited[idx] = 1;
                 search_candidates.push({idx, d});
@@ -891,7 +879,7 @@ void NNDescent::query(
                     continue;
                 }
                 visited[idx] = 1;
-                float d = dist(input_data, idx, query_data, i);
+                float d = dist(train_data, idx, _query_data, i);
                 if (d < distance_bound)
                 {
                     query_nn.checked_push(i, idx, d);
@@ -916,7 +904,7 @@ void NNDescent::query(
     query_indices = query_nn.indices;
     query_distances = query_nn.keys;
     correct_distances(
-        dist.correction, query_distances, query_distances
+        dist, query_distances, query_distances
     );
 }
 

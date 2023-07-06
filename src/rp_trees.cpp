@@ -5,9 +5,6 @@
  */
 
 
-#include <cstring>
-#include <tuple>
-
 #include "rp_trees.h"
 
 
@@ -17,10 +14,9 @@ namespace nndescent
 
 template<>
 std::tuple<std::vector<int>, std::vector<int>, std::vector<float>, float>
-random_projection_split<EuclideanSplit>
-(
+random_projection_split<EuclideanSplit>(
     const Matrix<float> &data,
-    IntVec &indices,
+    std::vector<int> &indices,
     RandomState &rng_state
 )
 {
@@ -93,7 +89,7 @@ random_projection_split<EuclideanSplit>
         }
     }
 
-    // If all points end up on one side, something went wrong numerically.  In
+    // If all points end up on one side, something went wrong numerically. In
     // this case, assign points randomly; they are likely very close anyway.
     if (cnt0 == 0 || cnt1 == 0)
     {
@@ -138,10 +134,9 @@ random_projection_split<EuclideanSplit>
 
 template<>
 std::tuple<std::vector<int>, std::vector<int>, std::vector<float>, float>
-random_projection_split<AngularSplit>
-(
+random_projection_split<AngularSplit>(
     const Matrix<float> &data,
-    IntVec &indices,
+    std::vector<int> &indices,
     RandomState &rng_state
 )
 {
@@ -291,18 +286,16 @@ random_projection_split<AngularSplit>
 
 
 template<>
-std::tuple
-<
+std::tuple<
     std::vector<int>,
     std::vector<int>,
     std::vector<size_t>,
     std::vector<float>,
     float
 >
-sparse_random_projection_split<EuclideanSplit>
-(
+sparse_random_projection_split<EuclideanSplit>(
     const CSRMatrix<float> &data,
-    IntVec &indices,
+    std::vector<int> &indices,
     RandomState &rng_state
 )
 {
@@ -393,7 +386,7 @@ sparse_random_projection_split<EuclideanSplit>
         }
     }
 
-    // If all points end up on one side, something went wrong numerically.  In
+    // If all points end up on one side, something went wrong numerically. In
     // this case, assign points randomly; they are likely very close anyway.
     if (cnt0 == 0 || cnt1 == 0)
     {
@@ -441,18 +434,16 @@ sparse_random_projection_split<EuclideanSplit>
 
 
 template<>
-std::tuple
-<
+std::tuple<
     std::vector<int>,
     std::vector<int>,
     std::vector<size_t>,
     std::vector<float>,
     float
 >
-sparse_random_projection_split<AngularSplit>
-(
+sparse_random_projection_split<AngularSplit>(
     const CSRMatrix<float> &data,
-    IntVec &indices,
+    std::vector<int> &indices,
     RandomState &rng_state
 )
 {
@@ -578,7 +569,7 @@ sparse_random_projection_split<AngularSplit>
         }
     }
 
-    // If all points end up on one side, something went wrong numerically.  In
+    // If all points end up on one side, something went wrong numerically. In
     // this case, assign points randomly; they are likely very close anyway.
     if (cnt0 == 0 || cnt1 == 0)
     {
@@ -624,8 +615,7 @@ sparse_random_projection_split<AngularSplit>
 }
 
 
-Matrix<int> get_leaves_from_forest
-(
+Matrix<int> get_leaves_from_forest(
     std::vector<RPTree> &forest
 )
 {
@@ -657,8 +647,7 @@ Matrix<int> get_leaves_from_forest
 
 
 template<>
-std::vector<int> RPTree::get_leaf
-(
+std::vector<int> RPTree::get_leaf(
     const Matrix<float> &query_data,
     size_t row,
     RandomState &rng_state
@@ -669,8 +658,7 @@ std::vector<int> RPTree::get_leaf
 
 
 template<>
-std::vector<int> RPTree::get_leaf
-(
+std::vector<int> RPTree::get_leaf(
     const CSRMatrix<float> &query_data,
     size_t row,
     RandomState &rng_state
@@ -699,15 +687,14 @@ std::ostream& operator<<(std::ostream &out, const RPTNode &node)
 
 /*
  * This is an auxiliary function used for recursively printing a random
- * projection tree.  It adds the tree representation to the output stream
+ * projection tree. It adds the tree representation to the output stream
  * 'out', with a specified 'prefix', starting from a given node 'from'. The
  * 'is_left' parameter indicates whether the node is the left child of its
  * parent.
  */
-void _add_tree_from_to_stream
-(
+void _add_tree_from_to_stream(
     std::ostream &out,
-    std::string prefix,
+    const std::string &prefix,
     RPTree tree,
     int from,
     char is_left

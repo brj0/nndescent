@@ -1,27 +1,45 @@
 # Nearest Neighbor Descent (nndescent)
 
-Nearest Neighbor Descent (nndescent) is a C++ implementation of the nearest neighbor descent algorithm, designed for efficient and accurate approximate nearest neighbor search. With seamless integration into Python, it offers a powerful solution for constructing k-nearest neighbor graphs. This algorithm is based on the pynndescent library, originally written by Leland McInnes.
+Nearest Neighbor Descent (nndescent) is a C++ implementation of the nearest neighbor descent algorithm, designed for efficient and accurate approximate nearest neighbor search. With seamless integration into Python, it offers a powerful solution for constructing k-nearest neighbor graphs. This algorithm is based on the [pynndescent library](https://github.com/lmcinnes/pynndescent).
 
 
 ## Features
 
 - Seamless integration into Python and effortless installation using `pip`.
 - The handling of nndescent is very similar to that of pynndescent.
-- Pure C++11 implementation utilizing OpenMP for parallel computation. No other libraries are needed.
+- Pure C++11 implementation utilizing OpenMP for parallel computation. No other external libraries are needed.
 - Currently tested only on Linux.
 - Both dense and sparse matrices are supported.
 - Implementation of multiple distance functions, i.e.
-    - euclidean
-    - manhattan
-    - chebyshev
-    - canberra
-    - braycurtis
-    - seuclidean
-    - cosine
-    - correlation
-    - haversine
-    - hamming
-    - hellinger
+    - Bray-Curtis
+    - Canberra
+    - Chebyshev
+    - Circular Kantorovich (no sparse verion)
+    - Correlation
+    - Cosine
+    - Dice
+    - Dot
+    - Euclidean
+    - Hamming
+    - Haversine
+    - Hellinger
+    - Hellinger
+    - Jaccard
+    - Jensen-Shannon
+    - Kulsinski
+    - Manhattan
+    - Matching
+    - Minkowski
+    - Rogers-Tanimoto
+    - Russell-Rao
+    - Sokal-Michener
+    - Sokal-Sneath
+    - Spearman's Rank Correlation (no sparse version)
+    - Symmetric KL Divergence
+    - TSSS
+    - True Angular
+    - Wasserstein 1D (no sparse version)
+    - Yule
 
 Please note that not all distances have undergone thorough testing. Therefore, it is advised to use them with caution and at your own discretion.
 
@@ -93,21 +111,21 @@ For detailed usage in C++ and for further Python/C++ examples please refer to th
 
 ## Performance
 
-On my computer, the training phase of nndescent is approximately 10-15% faster than pynndescent. Furthermore, the search query phase shows a significant improvement, with >70% faster execution time. Below is the output obtained from running `tests/benchmark.py`, an ad hoc benchmark test that is not representative of all scenarios (low accuracy in the angular case for pynndescent). In this test, both nndescent and pynndescent were executed with the same parameters using either 'euclidean' or 'dot' as metric:
+On my computer, the training phase of nndescent is approximately 15% faster than pynndescent for dense matrices, and 75% faster for sparse matrices. Furthermore, the search query phase shows a significant improvement, with >70% faster execution time. Below is the output obtained from running `tests/benchmark.py`, an ad hoc benchmark test. In this test, both nndescent and pynndescent were executed with the same parameters using either 'euclidean' or 'dot' as metric:
 
-
-### Benchmark test pynndescent (py) vs nndescent (c)
-Data set  | py train [ms] | c train [ms] | ratio | py vs c match | py test [ms] | c test [ms] | ratio | py accuracy | c accuracy
-----------|---------------|--------------|-------|---------------|--------------|-------------|-------|-------------|-----------
-faces     |         159.6 |        175.2 | 1.098 |         1.000 |       1636.5 |        17.5 | 0.011 |       1.000 |      0.999
-fmnist    |       12281.2 |      10830.2 | 0.882 |         0.997 |       6001.6 |      1283.0 | 0.214 |       0.978 |      0.978
-glove25   |      166062.1 |     102499.3 | 0.617 |         0.020 |     121915.6 |      9967.7 | 0.082 |       0.030 |      0.808
-glove50   |      191170.0 |     138956.4 | 0.727 |         0.088 |     115711.5 |     10896.3 | 0.094 |       0.028 |      0.743
-glove100  |      215343.9 |     181356.0 | 0.842 |         0.176 |     112383.3 |     12555.7 | 0.112 |       0.042 |      0.731
-glove200  |      294725.6 |     244945.1 | 0.831 |         0.300 |     121324.7 |     18224.6 | 0.150 |       0.067 |      0.773
-mnist     |       11778.2 |      10364.7 | 0.880 |         0.997 |       5798.9 |      1279.1 | 0.221 |       0.969 |      0.968
-nytimes   |       67046.5 |      55050.4 | 0.821 |         0.729 |      23828.5 |      7320.4 | 0.307 |       0.546 |      0.810
-sift      |      138194.7 |     109386.4 | 0.792 |         0.974 |      82608.6 |      8178.0 | 0.099 |       0.838 |      0.839
+# Benchmark test pynndescent (py) vs nndescent (c)
+Data set     | py train [ms] | c train [ms] | ratio | py vs c match | py test [ms] | c test [ms] | ratio | py accuracy | c accuracy
+-------------|---------------|--------------|-------|---------------|--------------|-------------|-------|-------------|-----------
+faces        |         149.8 |        145.9 | 0.974 |         1.000 |       1663.7 |        18.4 | 0.011 |       1.000 |      0.999
+fmnist       |       11959.2 |      10768.7 | 0.900 |         0.997 |       5754.8 |      1334.1 | 0.232 |       0.978 |      0.978
+glove25      |      149754.2 |     101864.0 | 0.680 |         0.964 |      98740.6 |      9907.4 | 0.100 |       0.796 |      0.808
+glove50      |      192965.8 |     137171.8 | 0.711 |         0.885 |      99750.8 |     10647.7 | 0.107 |       0.705 |      0.743
+glove100     |      218202.9 |     180088.4 | 0.825 |         0.815 |      98770.2 |     12080.4 | 0.122 |       0.651 |      0.731
+glove200     |      287206.6 |     243466.6 | 0.848 |         0.772 |     101639.4 |     17615.6 | 0.173 |       0.622 |      0.773
+mnist        |       11319.7 |      10188.1 | 0.900 |         0.997 |       5725.9 |      1273.8 | 0.222 |       0.969 |      0.968
+nytimes      |       63323.8 |      55638.1 | 0.879 |         0.814 |      23632.1 |      7108.9 | 0.301 |       0.614 |      0.811
+sift         |      131711.4 |     105826.0 | 0.803 |         0.974 |      82503.7 |      7957.9 | 0.096 |       0.838 |      0.839
+20newsgroups |      107339.0 |      28339.7 | 0.264 |         0.922 |      67518.6 |     22513.1 | 0.333 |       0.858 |      0.929
 
 The compilation time and the lengthy numba loading time during runtime and import for 'pynndescent' are not considered in this ad hoc benchmark test. An [Ann-Benchmarks](https://github.com/erikbern/ann-benchmarks/tree/main) wrapper is planned for the future.
 
@@ -138,7 +156,6 @@ This project is licensed under the [BSD-2-Clause license](LICENSE).
 
 ## Acknowledgements
 
-This implementation is based on the original pynndescent library by Leland McInnes. I would like to express my gratitude for his work.
+This implementation is based on the original pynndescent library by Leland McInnes. I would like to acknowledge and appreciate his work as a source of inspiration for this project.
 
 For more information, visit the [pynndescent GitHub repository](https://github.com/lmcinnes/pynndescent).
-

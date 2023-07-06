@@ -9,13 +9,7 @@ from pynndescent.distances import *
 from pynndescent.sparse import *
 
 
-def test_distance(dist_name, dist, vec_name, v0, v1, v2):
-    print(f"{dist_name}({vec_name}0, {vec_name}1) =", dist(v0, v1))
-    print(f"{dist_name}({vec_name}0, {vec_name}2) =", dist(v0, v2))
-    print(f"{dist_name}({vec_name}1, {vec_name}2) =", dist(v1, v2))
-
-
-def get_distances(data_dim, p_metric):
+def get_distances():
     return {
         "alternative_cosine": alternative_cosine,
         "alternative_dot": alternative_dot,
@@ -35,7 +29,6 @@ def get_distances(data_dim, p_metric):
         "jaccard": jaccard,
         "jensen_shannon": jensen_shannon_divergence,
         "kulsinski": kulsinski,
-        "mahalanobis": mahalanobis,
         "manhattan": manhattan,
         "matching": matching,
         "minkowski": minkowski,
@@ -49,78 +42,86 @@ def get_distances(data_dim, p_metric):
         "true_angular": true_angular,
         "tsss": tsss,
         "wasserstein_1d": wasserstein_1d,
-        "weighted_minkowski": weighted_minkowski,
         "yule": yule,
+        # "kantorovich": kantorovich,
+        # "mahalanobis": mahalanobis,
+        # "sinkhorn": sinkhorn,
+        # "seuclidean": standardised_euclidean,
+        # "wminkowski": weighted_minkowski,
     }
 
 
-v0 = np.array([9, 5, 6, 7, 3, 2, 1, 0, 8, -4], dtype=np.float32)
-v1 = np.array([6, 8, -2, 3, 6, 5, 4, -9, 1, 0], dtype=np.float32)
-v2 = np.array([-1, 3, 5, 1, 0, 0, -7, 6, 5, 0], dtype=np.float32)
+def test_distance(dist_name, dist, name, mtx, p_metric):
+    for i in range(mtx.shape[0]):
+        for j in range(i + 1, mtx.shape[0]):
+            if dist_name in [
+                "circular_kantorovich",
+                "wasserstein_1d",
+                "minkowski",
+            ]:
+                d = dist(mtx[i], mtx[j], p_metric)
+            else:
+                d = dist(mtx[i], mtx[j])
+            print(f"{dist_name}({name}{i}, {name}{j}) =", d)
+    print()
+
+
+def test_all_distances(name, mtx, p_metric):
+    mtx_prob = np.abs(mtx)
+    row_sum = np.sum(mtx_prob, axis=1)
+    mtx_prob = mtx_prob / row_sum[:, np.newaxis]
+    mtx_2d = mtx[:, :2]
+    name_prob = name + "_prob"
+    name_2d = name + "_2d"
+    print("# Test distances for:")
+    print(name, "=\n", mtx, "\nshape =", mtx.shape)
+    print()
+    print(name_prob, "=\n", mtx_prob, "\nshape =", mtx_prob.shape)
+    print()
+    print(name_2d, "=\n", mtx_2d, "\nshape =", mtx_2d.shape)
+    print()
+    print()
+    print("# Distance functions:\n")
+
+    metrics = get_distances()
+
+    for dist_name, dist in metrics.items():
+        if dist_name == "haversine":
+            test_distance(dist_name, dist, name_2d, mtx_2d, p_metric)
+            continue
+        if dist_name in ["hellinger", "jensen_shannon", "symmetric_kl"]:
+            test_distance(dist_name, dist, name_prob, mtx_prob, p_metric)
+            continue
+        test_distance(dist_name, dist, name, mtx, p_metric)
+    print()
+
+
+U = np.array(
+    [
+        [9, 5, 6, 7, 3, 2, 1, 0, 8, -4],
+        [6, 8, -2, 3, 6, 5, 4, -9, 1, 0],
+        [-1, 3, 5, 1, 0, 0, -7, 6, 5, 0],
+    ],
+    dtype=np.float32,
+)
+
+V = np.array(
+    [
+        [-7, 2, 0, 3, 0, 0, -1, 2, 0, 0, 1, 0, 2, -1, 2, 0, 0, 1, 0, 0],
+        [0, 3, 1, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 3, 1, 0, 0, 2, 0, 2],
+        [0, 1, -1, 1, 0, 0, 0, 5, 0, 0, 0, 0, 0, -4, 7, 5, 9, 1, 1, 1],
+    ],
+    dtype=np.float32,
+)
 
 N = 100
-w0 = np.arange(0, N, dtype=np.float32)
-w1 = np.arange(-10, N - 10, dtype=np.float32)
-w2 = np.arange(5, N + 5, dtype=np.float32)
+data_W = []
+state = 0
+for _ in range(3 * N):
+    state = ((state * 1664525) + 1013904223) % 4294967296
+    data_W.append(state % 13 - 3)
+W = np.array(data_W, dtype=np.float32).reshape((3, 100))
 
-x0 = np.array([9, 5], dtype=np.float32)
-x1 = np.array([6, 8], dtype=np.float32)
-x2 = np.array([-1, 3], dtype=np.float32)
-
-y0 = np.array([3, -4], dtype=np.float32)
-y1 = np.array([-8, 8], dtype=np.float32)
-y2 = np.array([9, 4], dtype=np.float32)
-
-pv0 = np.abs(v0) / sum(np.abs(v0))
-pv1 = np.abs(v1) / sum(np.abs(v1))
-pv2 = np.abs(v2) / sum(np.abs(v2))
-
-pw0 = np.abs(w0) / sum(np.abs(w0))
-pw1 = np.abs(w1) / sum(np.abs(w1))
-pw2 = np.abs(w2) / sum(np.abs(w2))
-
-print("# Test distances for:")
-
-print("v0 =", v0, "size =", len(v0))
-print("v1 =", v1, "size =", len(v1))
-print("v2 =", v2, "size =", len(v2))
-
-print("w0 =", w0, "size =", len(w0))
-print("w1 =", w1, "size =", len(w1))
-print("w2 =", w2, "size =", len(w2))
-
-print("x0 =", x0, "size =", len(x0))
-print("x1 =", x1, "size =", len(x1))
-print("x2 =", x2, "size =", len(x2))
-
-print("y0 =", y0, "size =", len(y0))
-print("y1 =", y1, "size =", len(y1))
-print("y2 =", y2, "size =", len(y2))
-
-print("pv0 =", pv0, "size =", len(pv0))
-print("pv1 =", pv1, "size =", len(pv1))
-print("pv2 =", pv2, "size =", len(pv2))
-
-print("pw0 =", pw0, "size =", len(pw0))
-print("pw1 =", pw1, "size =", len(pw1))
-print("pw2 =", pw2, "size =", len(pw2))
-
-print()
-
-metrics_v = get_distances(len(v0), 2)
-metrics_w = get_distances(len(w0), 2)
-
-for name, dense in metrics_v.items():
-    if name == "haversine":
-        test_distance(name, dense, "x", x0, x1, x2)
-        test_distance(name, dense, "y", y0, y1, y2)
-        print()
-        continue
-    if name in ["hellinger", "jensen_shannon", "symmetric_kl"]:
-        test_distance(name, dense, "p", pv0, pv1, pv2)
-        test_distance(name, dense, "p", pw0, pw1, pw2)
-        print()
-        continue
-    test_distance(name, dense, "v", v0, v1, v2)
-    test_distance(name, dense, "w", w0, w1, w2)
-    print()
+test_all_distances("U", U, 2)
+test_all_distances("V", V, 2)
+test_all_distances("W", W, 2)

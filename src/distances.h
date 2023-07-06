@@ -4,17 +4,13 @@
  * @brief Distance functions.
  */
 
+
 #pragma once
 
 #include <algorithm>
-#include <cmath>
 #include <limits>
-#include <map>
 #include <numeric>
-#include <stdexcept>
 #include <string>
-#include <map>
-#include <utility>
 #include <vector>
 
 #include "utils.h"
@@ -36,12 +32,11 @@ using Function1d = float (*)(float);
 using It = float*;
 using Metric = float (*)(It, It, It);
 using SparseMetric = float (*)(size_t*, size_t*, It, size_t*, size_t*, It);
+using MetricP = float (*)(It, It, It, float);
+using SparseMetricP = float (*)(size_t*, size_t*, It, size_t*, size_t*, It, float);
 
-using Metric_p = float (*)(It, It, It, float);
-using SparseMetric_p = float (*)(size_t*, size_t*, It, size_t*, size_t*, It, float);
 
-
-/**
+/*
  * @brief Identity function.
  */
 template<class T>
@@ -51,7 +46,7 @@ T identity(T value)
 }
 
 
-/**
+/*
  * @brief Squared euclidean distance.
  */
 template<class Iter0, class Iter1>
@@ -66,12 +61,11 @@ float squared_euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse squared euclidean distance.
  */
 template<class IterCol, class IterData>
-float sparse_squared_euclidean
-(
+float sparse_squared_euclidean(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -128,9 +122,11 @@ float sparse_squared_euclidean
 }
 
 
+/*
+ * @brief Computes the element-wise sum of two sparse vectors.
+ */
 template<class IterCol, class IterData>
-std::tuple<std::vector<size_t>, std::vector<float>> sparse_sum
-(
+std::tuple<std::vector<size_t>, std::vector<float>> sparse_sum(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -194,12 +190,11 @@ std::tuple<std::vector<size_t>, std::vector<float>> sparse_sum
 }
 
 
-/**
+/*
  * @brief Sparse inner product.
  */
 template<class IterCol0, class IterCol1, class IterData0, class IterData1>
-float sparse_inner_product
-(
+float sparse_inner_product(
     IterCol0 first0,
     IterCol0 last0,
     IterData0 data0,
@@ -237,9 +232,11 @@ float sparse_inner_product
 }
 
 
+/*
+ * @brief Computes the element-wise difference of two sparse vectors.
+ */
 template<class IterCol, class IterData>
-std::tuple<std::vector<size_t>, std::vector<float>> sparse_diff
-(
+std::tuple<std::vector<size_t>, std::vector<float>> sparse_diff(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -303,9 +300,12 @@ std::tuple<std::vector<size_t>, std::vector<float>> sparse_diff
 }
 
 
+/*
+ * @brief Computes the element-wise difference of the normalized form of two
+ * sparse vectors.
+ */
 template<class IterCol, class IterData>
-std::tuple<std::vector<size_t>, std::vector<float>> sparse_weighted_diff
-(
+std::tuple<std::vector<size_t>, std::vector<float>> sparse_weighted_diff(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -371,7 +371,7 @@ std::tuple<std::vector<size_t>, std::vector<float>> sparse_weighted_diff
 }
 
 
-/**
+/*
  * @brief Standard euclidean distance.
  */
 template<class Iter0, class Iter1>
@@ -388,7 +388,7 @@ float euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Standardized euclidean distance.
  *
  * Euclidean distance standardized against a vector of standard
@@ -399,8 +399,7 @@ float euclidean(Iter0 first0, Iter0 last0, Iter1 first1)
  * \f]
  */
 template<class Iter0, class Iter1, class Iter2>
-float standardised_euclidean
-(
+float standardised_euclidean(
     Iter0 first0, Iter0 last0, Iter1 first1, Iter2 first2
 )
 {
@@ -417,7 +416,7 @@ float standardised_euclidean
 }
 
 
-/**
+/*
  * @brief Manhattan, taxicab, or l1 distance.
  *
  * \f[
@@ -437,8 +436,7 @@ float manhattan(Iter0 first0, Iter0 last0, Iter1 first1)
 
 
 template<class IterCol, class IterData>
-float sparse_manhattan
-(
+float sparse_manhattan(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -499,7 +497,7 @@ float sparse_manhattan
 }
 
 
-/**
+/*
  * @brief Chebyshev or l-infinity distance.
  *
  * \f[
@@ -520,7 +518,7 @@ float chebyshev(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Chebyshev or l-infinity distance.
  *
  * \f[
@@ -528,8 +526,7 @@ float chebyshev(Iter0 first0, Iter0 last0, Iter1 first1)
  * \f]
  */
 template<class IterCol, class IterData>
-float sparse_chebyshev
-(
+float sparse_chebyshev(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -594,7 +591,7 @@ float sparse_chebyshev
 }
 
 
-/**
+/*
  * @brief Minkowski distance.
  *
  * \f[
@@ -620,7 +617,7 @@ float minkowski(Iter0 first0, Iter0 last0, Iter1 first1, float p)
 }
 
 
-/**
+/*
  * @brief Sparse Minkowski distance.
  
  * \f[
@@ -633,8 +630,7 @@ float minkowski(Iter0 first0, Iter0 last0, Iter1 first1, float p)
  * to use the more specialised functions for those distances.
  */
 template<class IterCol, class IterData>
-float sparse_minkowski
-(
+float sparse_minkowski(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -699,7 +695,7 @@ float sparse_minkowski
 }
 
 
-/**
+/*
  *  @brief A weighted version of Minkowski distance.
  *
  * \f[
@@ -711,8 +707,7 @@ float sparse_minkowski
  * is equivalent to standardised Euclidean distance for p=1).
  */
 template<class Iter0, class Iter1, class Iter2>
-float weighted_minkowski
-(
+float weighted_minkowski(
     Iter0 first0, Iter0 last0, Iter1 first1, Iter2 first2, float p
 )
 {
@@ -729,7 +724,7 @@ float weighted_minkowski
 }
 
 
-/**
+/*
  * @brief Mahalanobis distance.
  */
 template<class Iter0, class Iter1, class Iter2>
@@ -762,7 +757,7 @@ float mahalanobis(Iter0 first0, Iter0 last0, Iter1 first1, Iter2 matrix_first)
 }
 
 
-/**
+/*
  * @brief Hamming distance.
  */
 template<class Iter0, class Iter1>
@@ -782,13 +777,11 @@ float hamming(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-
-/**
+/*
  * @brief Hamming distance.
  */
 template<class IterCol, class IterData>
-float sparse_hamming
-(
+float sparse_hamming(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -849,7 +842,8 @@ float sparse_hamming
     return result;
 }
 
-/**
+
+/*
  * @brief Canberra distance.
  */
 template<class Iter0, class Iter1>
@@ -871,12 +865,11 @@ float canberra(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse Canberra distance.
  */
 template<class IterCol, class IterData>
-float sparse_canberra
-(
+float sparse_canberra(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -956,8 +949,7 @@ float sparse_canberra
 }
 
 
-
-/**
+/*
  * @brief Bray–Curtis dissimilarity.
  */
 template<class Iter0, class Iter1>
@@ -980,7 +972,7 @@ float bray_curtis(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse Bray–Curtis dissimilarity.
  */
 template<class IterCol0, class IterData0, class IterCol1, class IterData1>
@@ -996,7 +988,8 @@ float sparse_bray_curtis(
     float numerator = 0.0f;
     float denominator = 0.0f;
 
-    while (first0 != last0)
+    // Pass through both index lists
+    while (first0 != last0 && first1 != last1)
     {
         if (*first0 == *first1)
         {
@@ -1048,7 +1041,7 @@ float sparse_bray_curtis(
 }
 
 
-/**
+/*
  * @brief Jaccard distance.
  */
 template<class Iter0, class Iter1>
@@ -1073,12 +1066,11 @@ float jaccard(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse jaccard distance.
  */
 template<class IterCol, class IterData>
-float sparse_jaccard
-(
+float sparse_jaccard(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -1145,7 +1137,7 @@ float sparse_jaccard
 }
 
 
-/**
+/*
  * @brief Alternative Jaccard distance.
  */
 template<class Iter0, class Iter1>
@@ -1168,12 +1160,11 @@ float alternative_jaccard(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse alternative jaccard distance.
  */
 template<class IterCol, class IterData>
-float sparse_alternative_jaccard
-(
+float sparse_alternative_jaccard(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -1240,7 +1231,7 @@ float sparse_alternative_jaccard
 }
 
 
-/**
+/*
  * @brief Correction function for Jaccard distance.
  */
 inline float correct_alternative_jaccard(float value)
@@ -1249,7 +1240,7 @@ inline float correct_alternative_jaccard(float value)
 }
 
 
-/**
+/*
  * @brief Matching.
  */
 template<class Iter0, class Iter1>
@@ -1266,12 +1257,11 @@ float matching(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse matching.
  */
 template<class IterCol, class IterData>
-float sparse_matching
-(
+float sparse_matching(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -1329,7 +1319,7 @@ float sparse_matching
 }
 
 
-/**
+/*
  * @brief Dice.
  */
 template<class Iter0, class Iter1>
@@ -1353,12 +1343,11 @@ float dice(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse dice.
  */
 template<class IterCol, class IterData>
-float sparse_dice
-(
+float sparse_dice(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -1425,7 +1414,7 @@ float sparse_dice
 }
 
 
-/**
+/*
  * @brief Kulsinski dissimilarity.
  */
 template<class Iter0, class Iter1>
@@ -1450,12 +1439,11 @@ float kulsinski(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse kulsinski dissimilarity.
  */
 template<class IterCol, class IterData>
-float sparse_kulsinski
-(
+float sparse_kulsinski(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -1523,7 +1511,7 @@ float sparse_kulsinski
 }
 
 
-/**
+/*
  * @brief Rogers-Tanimoto dissimilarity.
  */
 template<class Iter0, class Iter1>
@@ -1541,12 +1529,11 @@ float rogers_tanimoto(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse Rogers-Tanimoto dissimilarity.
  */
 template<class IterCol, class IterData>
-float sparse_rogers_tanimoto
-(
+float sparse_rogers_tanimoto(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -1605,7 +1592,7 @@ float sparse_rogers_tanimoto
 }
 
 
-/**
+/*
  * @brief Russell-Rao dissimilarity.
  */
 template<class Iter0, class Iter1>
@@ -1629,12 +1616,11 @@ float russellrao(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse Russell-Rao dissimilarity.
  */
 template<class IterCol, class IterData>
-float sparse_russellrao
-(
+float sparse_russellrao(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -1683,7 +1669,7 @@ float sparse_russellrao
 }
 
 
-/**
+/*
  * @brief Sokal-Michener dissimilarity.
  */
 template<class Iter0, class Iter1>
@@ -1701,7 +1687,7 @@ float sokal_michener(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse Sokal-Michener dissimilarity.
  */
 template<class IterCol, class IterData>
@@ -1765,7 +1751,7 @@ float sparse_sokal_michener(
 }
 
 
-/**
+/*
  * @brief Sokal-Sneath dissimilarity.
  */
 template<class Iter0, class Iter1>
@@ -1788,7 +1774,7 @@ float sokal_sneath(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse Sokal-Sneath dissimilarity.
  */
 template<class IterCol, class IterData>
@@ -1860,7 +1846,7 @@ float sparse_sokal_sneath(
 }
 
 
-/**
+/*
  * @brief Haversine distance.
  */
 template<class Iter0, class Iter1>
@@ -1876,7 +1862,7 @@ float haversine(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Yule dissimilarity.
  */
 template<class Iter0, class Iter1>
@@ -1905,7 +1891,7 @@ float yule(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse Yule dissimilarity.
  */
 template<class IterCol0, class IterData0, class IterCol1, class IterData1>
@@ -1980,7 +1966,7 @@ float sparse_yule(
 }
 
 
-/**
+/*
  * @brief Cosine similarity.
  */
 template<class Iter0, class Iter1>
@@ -2007,12 +1993,11 @@ float cosine(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse cosine similarity.
  */
 template<class IterCol, class IterData>
-float sparse_cosine
-(
+float sparse_cosine(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -2084,7 +2069,7 @@ float sparse_cosine
 }
 
 
-/**
+/*
  * @brief Alternative cosine similarity.
  */
 template<class Iter0, class Iter1>
@@ -2116,12 +2101,11 @@ float alternative_cosine(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse alternative cosine similarity.
  */
 template<class IterCol, class IterData>
-float sparse_alternative_cosine
-(
+float sparse_alternative_cosine(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -2198,7 +2182,7 @@ float sparse_alternative_cosine
 }
 
 
-/**
+/*
  * @brief Dot.
  */
 template<class Iter0, class Iter1>
@@ -2218,9 +2202,11 @@ float dot(Iter0 first0, Iter0 last0, Iter1 first1)
 
 
 
+/*
+ * @brief Sparse dot.
+ */
 template<class IterCol, class IterData>
-float sparse_dot
-(
+float sparse_dot(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -2265,7 +2251,7 @@ float sparse_dot
 }
 
 
-/**
+/*
  * @brief Alternative dot.
  */
 template<class Iter0, class Iter1>
@@ -2284,12 +2270,11 @@ float alternative_dot(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse alternative dot.
  */
 template<class IterCol, class IterData>
-float sparse_alternative_dot
-(
+float sparse_alternative_dot(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -2333,7 +2318,7 @@ float sparse_alternative_dot
 }
 
 
-/**
+/*
  * @brief Correction function for cosine.
  */
 inline float correct_alternative_cosine(float value)
@@ -2342,7 +2327,7 @@ inline float correct_alternative_cosine(float value)
 }
 
 
-/**
+/*
  * @brief TS-SS Similarity.
  */
 template<class Iter0, class Iter1>
@@ -2373,7 +2358,7 @@ float tsss(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse TS-SS Similarity.
  */
 template<class IterCol0, class IterData0, class IterCol1, class IterData1>
@@ -2465,7 +2450,7 @@ float sparse_tsss(
 }
 
 
-/**
+/*
  * @brief True angular.
  */
 template<class Iter0, class Iter1>
@@ -2497,12 +2482,11 @@ float true_angular(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse true angular.
  */
 template<class IterCol, class IterData>
-float sparse_true_angular
-(
+float sparse_true_angular(
     IterCol first0,
     IterCol last0,
     IterData data0,
@@ -2579,7 +2563,7 @@ float sparse_true_angular
 }
 
 
-/**
+/*
  * @brief Correction function true angular.
  */
 inline float true_angular_from_alt_cosine(float value)
@@ -2588,7 +2572,7 @@ inline float true_angular_from_alt_cosine(float value)
 }
 
 
-/**
+/*
  * @brief Correlation.
  */
 template<class Iter0, class Iter1>
@@ -2630,7 +2614,7 @@ float correlation(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse correlation.
  */
 template<class IterCol0, class IterData0, class IterCol1, class IterData1>
@@ -2760,7 +2744,7 @@ float sparse_correlation(
 }
 
 
-/**
+/*
  * @brief Hellinger.
  */
 template<class Iter0, class Iter1>
@@ -2791,7 +2775,7 @@ float hellinger(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse Hellinger.
  */
 template<class IterCol0, class IterData0, class IterCol1, class IterData1>
@@ -2869,7 +2853,7 @@ float sparse_hellinger(
 }
 
 
-/**
+/*
  * @brief Alternative Hellinger.
  */
 template<class Iter0, class Iter1>
@@ -2905,7 +2889,7 @@ float alternative_hellinger(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse alternative Hellinger.
  */
 template<class IterCol0, class IterData0, class IterCol1, class IterData1>
@@ -2988,8 +2972,7 @@ float sparse_alternative_hellinger(
 }
 
 
-
-/**
+/*
  * @brief Correction function for alternative Hellinger.
  */
 inline float correct_alternative_hellinger(float value)
@@ -2999,8 +2982,7 @@ inline float correct_alternative_hellinger(float value)
 
 
 template<class Iter>
-std::vector<float> rankdata
-(
+std::vector<float> rankdata(
     Iter first, Iter last,
     const std::string& method="average"
 )
@@ -3095,7 +3077,7 @@ std::vector<float> rankdata
 }
 
 
-/**
+/*
  * @brief Spearman rho.
  */
 template<class Iter0, class Iter1>
@@ -3109,11 +3091,11 @@ float spearmanr(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Jensen Shannon divergence.
  */
 template<class Iter0, class Iter1>
-float jensen_shannon_divergence(Iter0 first0, Iter0 last0, Iter1 first1)
+float jensen_shannon(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     float result = 0.0f;
     float l1_norm0 = 0.0f;
@@ -3146,11 +3128,11 @@ float jensen_shannon_divergence(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse Jensen Shannon divergence.
  */
 template<class IterCol0, class IterData0, class IterCol1, class IterData1>
-float sparse_jensen_shannon_divergence(
+float sparse_jensen_shannon(
     IterCol0 first0,
     IterCol0 last0,
     IterData0 data0,
@@ -3312,8 +3294,7 @@ float sparse_jensen_shannon_divergence(
 }
 
 
-
-/**
+/*
  * @brief Wasserstein 1d.
  */
 template<class Iter0, class Iter1>
@@ -3379,7 +3360,7 @@ T median(std::vector<T> &vec)
 }
 
 
-/**
+/*
  * @brief Circular Kantorovich.
  */
 template<class Iter0, class Iter1>
@@ -3453,11 +3434,11 @@ float circular_kantorovich(Iter0 first0, Iter0 last0, Iter1 first1, float p)
 }
 
 
-/**
+/*
  * @brief Symmetric Kullback-Leibler divergence.
  */
 template<class Iter0, class Iter1>
-float symmetric_kl_divergence(Iter0 first0, Iter0 last0, Iter1 first1)
+float symmetric_kl(Iter0 first0, Iter0 last0, Iter1 first1)
 {
     float result = 0.0f;
     float l1_norm0 = 0.0f;
@@ -3493,11 +3474,11 @@ float symmetric_kl_divergence(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-/**
+/*
  * @brief Sparse symmetric Kullback-Leibler divergence.
  */
 template<class IterCol0, class IterData0, class IterCol1, class IterData1>
-float sparse_symmetric_kl_divergence(
+float sparse_symmetric_kl(
     IterCol0 first0,
     IterCol0 last0,
     IterData0 data0,
@@ -3631,32 +3612,44 @@ float sparse_symmetric_kl_divergence(
 }
 
 
+/*
+ * @brief Class template representing a distance function.
+ *
+ * This class encapsulates a dense metric function, a sparse metric function
+ * and a correction function for calculating distances between two points.
+ *
+ * @tparam Dense The dense metric function.
+ * @tparam Sparse The sparse metric function.
+ * @tparam Correction function if a faster alternative of the distance function
+ * is used. Otherwise this is simply the identity function.
+ */
 template<
     float (*Dense)(It, It, It),
-    float (*Sparse)(size_t*, size_t*, It, size_t*, size_t*, It)
+    float (*Sparse)(size_t*, size_t*, It, size_t*, size_t*, It),
+    float (*Correction)(float)
 >
 class Dist
 {
 public:
+
     /*
      * Some metrics have alternative forms that allow for faster calculations,
      * but these forms may produce slightly different distances. This function
-     * applies distance correction if an alternative metric is used.
+     * applies distance correction. If no alternative metric is used, this is
+     * simply the identity function.
      */
-    Function1d correction;
-    Metric dense=Dense;
-    SparseMetric sparse=Sparse;
+    inline float correction(float value) const { return Correction(value); }
 
-    Dist()
-        : correction(identity)
-    {
-    }
-
-    Dist(Function1d cor)
-        : correction(cor)
-    {
-    }
-
+    /*
+     * Calculates the distance between two data points using the dense metric
+     * function.
+     *
+     * @param data The input data matrix.
+     * @param idx0 The index of the first data point.
+     * @param idx1 The index of the second data point.
+     *
+     * @return The distance between the two data points.
+     */
     inline float operator()
     (
         const Matrix<float> &data,
@@ -3668,6 +3661,18 @@ public:
             data.begin(idx0), data.end(idx0), data.begin(idx1)
         );
     }
+
+    /*
+     * Calculates the distance between a data point and a query point using the
+     * dense metric function.
+     *
+     * @param data The input data matrix.
+     * @param idx_d The index of the data point.
+     * @param query_data The query data matrix.
+     * @param idx_q The index of the query point.
+     *
+     * @return The distance between the data point and the query point.
+     */
     inline float operator()
     (
         const Matrix<float> &data,
@@ -3681,6 +3686,16 @@ public:
         );
     }
 
+    /*
+     * Calculates the distance between two data points using the sparse metric
+     * function.
+     *
+     * @param data The input CSR matrix.
+     * @param idx0 The index of the first data point.
+     * @param idx1 The index of the second data point.
+     *
+     * @return The distance between the two data points.
+     */
     inline float operator()
     (
         const CSRMatrix<float> &data,
@@ -3697,6 +3712,18 @@ public:
             data.begin_data(idx1)
         );
     }
+
+    /*
+     * Calculates the distance between a data point and a query point using the
+     * sparse metric function.
+     *
+     * @param data The input CSR matrix.
+     * @param idx_d The index of the data point.
+     * @param query_data The query CSR matrix.
+     * @param idx_q The index of the query point.
+     *
+     * @return The distance between the data point and the query point.
+     */
     inline float operator()
     (
         const CSRMatrix<float> &data,
@@ -3718,33 +3745,28 @@ public:
 };
 
 
+/*
+ * @brief This class template is similar to the 'Dist' class, but with
+ * the difference that the dense and the sparse metrics depend on an external
+ * float variable 'p_metric'.
+ */
 template<
     float (*Dense)(It, It, It, float),
-    float (*Sparse)(size_t*, size_t*, It, size_t*, size_t*, It, float)
+    float (*Sparse)(size_t*, size_t*, It, size_t*, size_t*, It, float),
+    float (*Correction)(float)
 >
 class DistP
 {
 public:
-    float p_metric=1.0f;
 
-    /*
-     * Some metrics have alternative forms that allow for faster calculations,
-     * but these forms may produce slightly different distances. This function
-     * applies distance correction if an alternative metric is used.
-     */
-    Function1d correction;
+    float p_metric;
 
-    DistP(float p)
+    explicit DistP(float p)
         : p_metric(p)
-        , correction(identity)
     {
     }
 
-    DistP(float p, Function1d cor)
-        : p_metric(p)
-        , correction(cor)
-    {
-    }
+    inline float correction(float value) const { return Correction(value); }
 
     inline float operator()
     (
@@ -3757,6 +3779,7 @@ public:
             data.begin(idx0), data.end(idx0), data.begin(idx1), p_metric
         );
     }
+
     inline float operator()
     (
         const Matrix<float> &data,
@@ -3787,6 +3810,7 @@ public:
             p_metric
         );
     }
+
     inline float operator()
     (
         const CSRMatrix<float> &data,
@@ -3809,33 +3833,27 @@ public:
 };
 
 
+/*
+ * @brief This class template is similar to the 'Dist' class, but with the
+ * difference that the sparse metric needs knowledge of the dimension.
+ */
 template<
     float (*Dense)(It, It, It),
-    float (*Sparse)(size_t*, size_t*, It, size_t*, size_t*, It, float)
+    float (*Sparse)(size_t*, size_t*, It, size_t*, size_t*, It, float),
+    float (*Correction)(float)
 >
 class DistD
 {
 public:
+
     float dim;
 
-    /*
-     * Some metrics have alternative forms that allow for faster calculations,
-     * but these forms may produce slightly different distances. This function
-     * applies distance correction if an alternative metric is used.
-     */
-    Function1d correction;
-
-    DistD(float d)
+    explicit DistD(float d)
         : dim(d)
-        , correction(identity)
     {
     }
 
-    DistD(float d, Function1d cor)
-        : dim(d)
-        , correction(cor)
-    {
-    }
+    inline float correction(float value) const { return Correction(value); }
 
     inline float operator()
     (
@@ -3848,6 +3866,7 @@ public:
             data.begin(idx0), data.end(idx0), data.begin(idx1)
         );
     }
+
     inline float operator()
     (
         const Matrix<float> &data,
@@ -3878,6 +3897,7 @@ public:
             dim
         );
     }
+
     inline float operator()
     (
         const CSRMatrix<float> &data,
@@ -3901,43 +3921,46 @@ public:
 
 
 // METRICS WITH NO PARAMETERS
-using AltCosine = Dist<alternative_cosine, sparse_alternative_cosine>;
-using AltDot = Dist<alternative_dot, sparse_alternative_dot>;
-using BrayCurtis = Dist<bray_curtis, sparse_bray_curtis>;
-using Canberra = Dist<canberra, sparse_canberra>;
-using Chebyshev = Dist<chebyshev, sparse_chebyshev>;
-using Cosine = Dist<cosine, sparse_cosine>;
-using Dice = Dist<dice, sparse_dice>;
-using Dot = Dist<dot, sparse_dot>;
-using Euclidean = Dist<squared_euclidean, sparse_squared_euclidean>;
-using Hamming = Dist<hamming, sparse_hamming>;
-using Haversine = Dist<haversine, nullptr>;
-using Hellinger = Dist<hellinger, sparse_hellinger>;
-using Jaccard = Dist<jaccard, sparse_jaccard>;
-using Manhattan = Dist<manhattan, sparse_manhattan>;
-using Matching = Dist<matching, sparse_matching>;
-using SokalSneath = Dist<sokal_sneath, sparse_sokal_sneath>;
-using SpearmanR = Dist<spearmanr, nullptr>;
-using SqEuclidean = Dist<squared_euclidean, sparse_squared_euclidean>;
-using TrueAngular = Dist<true_angular, sparse_true_angular>;
-using Tsss = Dist<tsss, sparse_tsss>;
+using AltCosine = Dist<alternative_cosine, sparse_alternative_cosine, identity>;
+using AltDot = Dist<alternative_dot, sparse_alternative_dot, identity>;
+using AltJaccard = Dist<
+    alternative_jaccard, sparse_alternative_jaccard, correct_alternative_jaccard
+>;
+using BrayCurtis = Dist<bray_curtis, sparse_bray_curtis, identity>;
+using Canberra = Dist<canberra, sparse_canberra, identity>;
+using Chebyshev = Dist<chebyshev, sparse_chebyshev, identity>;
+using Cosine = Dist<cosine, sparse_cosine, identity>;
+using Dice = Dist<dice, sparse_dice, identity>;
+using Dot = Dist<dot, sparse_dot, identity>;
+using Euclidean = Dist<squared_euclidean, sparse_squared_euclidean, std::sqrt>;
+using Hamming = Dist<hamming, sparse_hamming, identity>;
+using Haversine = Dist<haversine, nullptr, identity>;
+using Hellinger = Dist<hellinger, sparse_hellinger, identity>;
+using Jaccard = Dist<jaccard, sparse_jaccard, identity>;
+using Manhattan = Dist<manhattan, sparse_manhattan, identity>;
+using Matching = Dist<matching, sparse_matching, identity>;
+using SokalSneath = Dist<sokal_sneath, sparse_sokal_sneath, identity>;
+using SpearmanR = Dist<spearmanr, nullptr, identity>;
+using SqEuclidean = Dist<squared_euclidean, sparse_squared_euclidean, identity>;
+using TrueAngular = Dist<true_angular, sparse_true_angular, identity>;
+using Tsss = Dist<tsss, sparse_tsss, identity>;
 
 
 // METRICS WITH ONE FLOAT PARAMETER
-using CircularKantorovich = DistP<circular_kantorovich, nullptr>;
-using Minkowski = DistP<minkowski, sparse_minkowski>;
-using Wasserstein = DistP<wasserstein_1d, nullptr>;
+using CircularKantorovich = DistP<circular_kantorovich, nullptr, identity>;
+using Minkowski = DistP<minkowski, sparse_minkowski, identity>;
+using Wasserstein = DistP<wasserstein_1d, nullptr, identity>;
 
 
 // METRICS WHERE THE SPARSE VERSION NEEDS KNOWLEDGE OF THE DIMENSION
-using Correlation = DistD<correlation, sparse_correlation>;
-using JensenShannon = DistD<jensen_shannon_divergence, sparse_jensen_shannon_divergence>;
-using Kulsinski = DistD<kulsinski, sparse_kulsinski>;
-using RogersTanimoto = DistD<rogers_tanimoto, sparse_rogers_tanimoto>;
-using Russelrao = DistD<russellrao, sparse_russellrao>;
-using SokalMichener = DistD<sokal_michener, sparse_sokal_michener>;
-using SymmetriyKlDiv = DistD<symmetric_kl_divergence, sparse_symmetric_kl_divergence>;
-using Yule = DistD<yule, sparse_yule>;
+using Correlation = DistD<correlation, sparse_correlation, identity>;
+using JensenShannon = DistD<jensen_shannon, sparse_jensen_shannon, identity>;
+using Kulsinski = DistD<kulsinski, sparse_kulsinski, identity>;
+using RogersTanimoto = DistD<rogers_tanimoto, sparse_rogers_tanimoto, identity>;
+using RussellRao = DistD<russellrao, sparse_russellrao, identity>;
+using SokalMichener = DistD<sokal_michener, sparse_sokal_michener, identity>;
+using SymmetriyKL = DistD<symmetric_kl, sparse_symmetric_kl, identity>;
+using Yule = DistD<yule, sparse_yule, identity>;
 
 
 } // namespace nndescent

@@ -12,6 +12,7 @@
 #include "../src/dtypes.h"
 #include "../src/nnd.h"
 
+
 namespace py = pybind11;
 using namespace nndescent;
 
@@ -82,10 +83,9 @@ public:
     CSRMatrix<float> csr_data;
     NNDescent nnd;
 
-    NNDWrapper
-    (
+    NNDWrapper(
         py::object &py_obj,
-        std::string metric,
+        const std::string& metric,
         float p_metric,
         int n_neighbors,
         int n_trees,
@@ -99,7 +99,7 @@ public:
         float delta,
         int n_threads,
         bool verbose,
-        std::string algorithm
+        const std::string &algorithm
     )
     {
         // Read parameters
@@ -138,8 +138,7 @@ public:
             nnd = NNDescent(data, parms);
         }
         // Input data is a sparse SciPy CSR matrix
-        else if
-        (
+        else if (
             py::hasattr(py_obj, "indptr") &&
             py::hasattr(py_obj, "data") &&
             py::hasattr(py_obj, "indices")
@@ -176,10 +175,7 @@ public:
     int get_n_threads() const { return nnd.n_threads; }
     bool get_verbose() const { return nnd.verbose; }
     std::string get_algorithm() const { return nnd.algorithm; }
-    py::array_t<float> get_data() const
-    {
-        return to_pyarray(data);
-    }
+    py::array_t<float> get_data() const { return to_pyarray(data); }
     py::tuple get_csr_data() const
     {
         return py::make_tuple(
@@ -204,8 +200,7 @@ public:
     {
         return to_pyarray(nnd.current_graph.flags);
     }
-    py::tuple query
-    (
+    py::tuple query(
         py::object &py_obj, int k, float epsilon
     )
     {
@@ -233,8 +228,7 @@ public:
             );
         }
         // Input query_data is a sparse SciPy CSR matrix
-        else if
-        (
+        else if(
             py::hasattr(py_obj, "indptr") &&
             py::hasattr(py_obj, "data") &&
             py::hasattr(py_obj, "indices")
@@ -264,9 +258,10 @@ public:
     void set_n_trees(int n) { nnd.n_trees = n; }
     void set_leaf_size(int n) { nnd.leaf_size = n; }
     void set_pruning_degree_multiplier(float x)
-        { nnd.pruning_degree_multiplier = x; }
-    void set_pruning_prob(float x)
-        { nnd.pruning_prob = x; }
+    {
+        nnd.pruning_degree_multiplier = x;
+    }
+    void set_pruning_prob(float x) { nnd.pruning_prob = x; }
     void set_tree_init(bool x) { nnd.tree_init = x; }
     void set_seed(int x) { nnd.seed = x; }
     void set_max_candidates(int x) { nnd.max_candidates = x; }
@@ -283,9 +278,25 @@ PYBIND11_MODULE(nndescent, m)
     m.doc() = "Calculates approximate k-nearest neighbors";
     m.attr("__version__") = PROJECT_VERSION;
     py::class_<NNDWrapper>(m, "NNDescent")
-        .def(py::init<py::object&, const std::string&, float, int, int, int,
-            float, float, bool, int, int, int, float, int, bool,
-            const std::string&>(),
+        .def(
+            py::init<
+                py::object&,
+                const std::string&,
+                float,
+                int,
+                int,
+                int,
+                float,
+                float,
+                bool,
+                int,
+                int,
+                int,
+                float,
+                int,
+                bool,
+                const std::string&
+            >(),
             py::arg("data"),
             py::arg("metric")=DEFAULT_PARMS.metric,
             py::arg("p_metric")=DEFAULT_PARMS.p_metric,
@@ -305,62 +316,69 @@ PYBIND11_MODULE(nndescent, m)
             py::arg("verbose")=DEFAULT_PARMS.verbose,
             py::arg("algorithm")=DEFAULT_PARMS.algorithm
         )
-        .def("query", &NNDWrapper::query,
+        .def(
+            "query",
+            &NNDWrapper::query,
             py::arg("query_data"),
             py::arg("k")=DEFAULT_K,
             py::arg("epsilon")=DEFAULT_EPSILON
         )
-        .def_property("metric", &NNDWrapper::get_metric,
-            &NNDWrapper::set_metric
+        .def_property(
+            "metric", &NNDWrapper::get_metric, &NNDWrapper::set_metric
         )
-        .def_property("p_metric", &NNDWrapper::get_p_metric,
-            &NNDWrapper::set_p_metric
+        .def_property(
+            "p_metric", &NNDWrapper::get_p_metric, &NNDWrapper::set_p_metric
         )
-        .def_property("n_neighbors", &NNDWrapper::get_n_neighbors,
+        .def_property(
+            "n_neighbors", &NNDWrapper::get_n_neighbors,
             &NNDWrapper::set_n_neighbors
         )
-        .def_property("n_trees", &NNDWrapper::get_n_trees,
-            &NNDWrapper::set_n_trees
+        .def_property(
+            "n_trees", &NNDWrapper::get_n_trees, &NNDWrapper::set_n_trees
         )
-        .def_property("leaf_size", &NNDWrapper::get_leaf_size,
-            &NNDWrapper::set_leaf_size
+        .def_property(
+            "leaf_size", &NNDWrapper::get_leaf_size, &NNDWrapper::set_leaf_size
         )
-        .def_property("pruning_degree_multiplier",
+        .def_property(
+            "pruning_degree_multiplier",
             &NNDWrapper::get_pruning_degree_multiplier,
             &NNDWrapper::set_pruning_degree_multiplier
         )
-        .def_property("pruning_prob",
+        .def_property(
+            "pruning_prob",
             &NNDWrapper::get_pruning_prob,
             &NNDWrapper::set_pruning_prob
         )
-        .def_property("tree_init", &NNDWrapper::get_tree_init,
-            &NNDWrapper::set_tree_init
+        .def_property(
+            "tree_init", &NNDWrapper::get_tree_init, &NNDWrapper::set_tree_init
         )
         .def_property("seed", &NNDWrapper::get_seed, &NNDWrapper::set_seed)
-        .def_property("max_candidates", &NNDWrapper::get_max_candidates,
+        .def_property(
+            "max_candidates",
+            &NNDWrapper::get_max_candidates,
             &NNDWrapper::set_max_candidates
         )
-        .def_property("n_iters", &NNDWrapper::get_n_iters,
-            &NNDWrapper::set_n_iters
+        .def_property(
+            "n_iters", &NNDWrapper::get_n_iters, &NNDWrapper::set_n_iters
         )
-        .def_property("delta", &NNDWrapper::get_delta,
-            &NNDWrapper::set_delta
+        .def_property(
+            "delta", &NNDWrapper::get_delta, &NNDWrapper::set_delta
         )
-        .def_property("n_threads", &NNDWrapper::get_n_threads,
-            &NNDWrapper::set_n_threads
+        .def_property(
+            "n_threads", &NNDWrapper::get_n_threads, &NNDWrapper::set_n_threads
         )
-        .def_property("verbose", &NNDWrapper::get_verbose,
-            &NNDWrapper::set_verbose
+        .def_property(
+            "verbose", &NNDWrapper::get_verbose, &NNDWrapper::set_verbose
         )
-        .def_property("algorithm", &NNDWrapper::get_algorithm,
-            &NNDWrapper::set_algorithm
+        .def_property(
+            "algorithm", &NNDWrapper::get_algorithm, &NNDWrapper::set_algorithm
         )
         .def_property_readonly("data", &NNDWrapper::get_data)
         .def_property_readonly("csr_data", &NNDWrapper::get_csr_data)
         .def_property_readonly("indices", &NNDWrapper::get_indices)
         .def_property_readonly("distances", &NNDWrapper::get_distances)
-        .def_property_readonly("neighbor_graph",
-            &NNDWrapper::get_neighbor_graph
+        .def_property_readonly(
+            "neighbor_graph", &NNDWrapper::get_neighbor_graph
         )
         .def_property_readonly("flags", &NNDWrapper::get_flags)
     ;

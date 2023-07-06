@@ -2,11 +2,13 @@
  * Very simple dataset to illustrate the functionality of the library.
  */
 
+
 #include <vector>
 
 #include "../src/nnd.h"
 
 using namespace nndescent;
+
 
 int main()
 {
@@ -58,10 +60,9 @@ int main()
 
     // Print NN-graphs
     std::cout << "\nNearest neighbor graph indices\n" << nn_indices
+        << "\nExact nearest neighbor graph indices\n" << nn_indices_ect
         << "\nNearest neighbor graph distances\n" << nn_distances
-        << "\nEcact nearest neighbor graph indices\n" << nn_indices_ect
-        << "\nEcact nearest neighbor graph distances\n" << nn_distances_ect;
-
+        << "\nExact nearest neighbor graph distances\n" << nn_distances_ect;
 
 
     // NEAREST NEIGHBORS - TESTING
@@ -96,9 +97,9 @@ int main()
 
     // Print NN-graphs for query points
     std::cout << "\nApproximate query NN graph:\n" << nn_query_indices
+        << "\nExact NN query graph:\n" << nn_query_indices_ect
         << "\nApproximate query NN graph distances:\n" << nn_query_distances
-        << "\nEcact NN query graph:\n" << nn_query_indices_ect
-        << "\nEcact NN query graph distances:\n" << nn_query_distances_ect;
+        << "\nExact NN query graph distances:\n" << nn_query_distances_ect;
 
 
     // DEBUG FEATURES
@@ -124,4 +125,3 @@ int main()
 
     return 0;
 }
-

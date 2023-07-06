@@ -1,16 +1,14 @@
 /**
  * @file dtypes.h
  *
- * @brief Data types used (Matrix, Heap, HeapList).
+ * @brief Data types used (Matrix, CSRMatrix, Heap, HeapList).
  */
+
 
 #pragma once
 
-#include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <iostream>
-#include <numeric>
 #include <queue>
 #include <string>
 #include <vector>
@@ -52,12 +50,10 @@ public:
      */
     T* m_ptr;
 
-
     /**
      * Default constructor. Creates an empty matrix.
      */
     Matrix();
-
 
     /**
      * Constructor to create a matrix with the specified number of rows and
@@ -68,7 +64,6 @@ public:
      */
     Matrix(size_t rows, size_t cols);
 
-
     /**
      * Constructor to create a matrix with the specified number of rows and
      * columns, and initialize all elements to a constant value.
@@ -78,7 +73,6 @@ public:
      * @param const_val The constant value to initialize all elements.
      */
     Matrix(size_t rows, size_t cols, const T &const_val);
-
 
     /**
      * Constructor to create a matrix with the specified number of rows and
@@ -91,7 +85,6 @@ public:
      */
     Matrix(size_t rows, size_t cols, T *data_ptr);
 
-
     /**
      * Constructor to create a matrix with the specified number of rows and
      * columns, and initialize elements from a vector.
@@ -102,14 +95,12 @@ public:
      */
     Matrix(size_t rows, std::vector<T> &data);
 
-
     /**
      * Copy constructor. Creates a new matrix as a copy of another matrix.
      *
      * @param other The matrix to be copied.
      */
     Matrix(const Matrix<T>& other);
-
 
     /**
      * Move constructor. Creates a new matrix by moving the data from another
@@ -118,7 +109,6 @@ public:
      * @param other The matrix to be moved.
      */
     Matrix(Matrix<T>&& other) noexcept;
-
 
     /**
      * Copy assignment operator. Assigns the contents of another matrix to
@@ -129,7 +119,6 @@ public:
      */
     Matrix<T>& operator=(const Matrix<T>& other);
 
-
     /**
      * Resizes an empty matrix to the specified number of rows and columns.
      *
@@ -137,7 +126,6 @@ public:
      * @param cols The new number of columns in the matrix.
      */
     void resize(size_t rows, size_t cols);
-
 
     /**
      * Accesses the element at the specified row and column index in the
@@ -152,7 +140,6 @@ public:
         return m_ptr[i * m_cols + j];
     }
 
-
     /**
      * Accesses the element at the specified row and column index in the
      * matrix (const version).
@@ -166,7 +153,6 @@ public:
         return m_ptr[i * m_cols + j];
     }
 
-
     /**
      * Returns the number of rows in the matrix.
      *
@@ -174,14 +160,12 @@ public:
      */
     size_t nrows() const { return m_rows; }
 
-
     /**
      * Returns the number of columns in the matrix.
      *
      * @return The number of columns.
      */
     size_t ncols() const { return m_cols; }
-
 
     /**
      * Accesses the element at the specified row index in the matrix.
@@ -191,7 +175,6 @@ public:
      */
     T* operator[](size_t i){ return m_ptr + i*m_cols; }
 
-
     /**
      * Returns a pointer to the beginning of the specified row in the matrix.
      *
@@ -199,7 +182,6 @@ public:
      * @return A pointer to the beginning of the specified row.
      */
     T* begin(size_t i) const { return m_ptr + i*m_cols; }
-
 
     /**
      * Returns a pointer to the end of the specified row in the matrix.
@@ -209,14 +191,12 @@ public:
      */
     T* end(size_t i) const { return m_ptr + (i + 1)*m_cols; }
 
-
     /**
      * Returns the count of non-none elements in the matrix.
      *
      * @return The count of non-none elements.
      */
     int non_none_cnt();
-
 
     /**
      * @brief Normalize each row of the matrix using the L2 norm.
@@ -225,7 +205,6 @@ public:
      * avoid division by zero.
      */
     void normalize();
-
 
     /**
      * @brief Creates a deep copy of the data storage if necessary.
@@ -253,6 +232,7 @@ Matrix<T>::Matrix()
     , m_ptr(&m_data[0])
 {
 }
+
 
 template <class T>
 Matrix<T>::Matrix(size_t rows, size_t cols)
@@ -411,47 +391,89 @@ std::ostream& operator<<(std::ostream &out, Matrix<T> const& matrix)
 }
 
 
+/**
+ * @brief CSRMatrix class represents a compressed sparse row (CSR) matrix.
+ *
+ * The CSRMatrix class is used to store and manipulate sparse matrices in
+ * compressed sparse row format. It provides efficient storage and access to
+ * the non-zero elements of the matrix.
+ *
+ * @tparam T The data type of the matrix elements.
+ */
 template<class T>
 class CSRMatrix
 {
 private:
-
 
     /**
      * The number of rows in the matrix.
      */
     size_t m_rows;
 
-
     /**
      * The number of columns in the matrix.
      */
     size_t m_cols;
 
-
 public:
+
+    /**
+     * Vector storing the non-zero values of the matrix.
+     */
     std::vector<T> m_data;
+
+    /**
+     * Vector storing the column indices of the non-zero values.
+     */
     std::vector<size_t> m_col_ind;
+
+    /**
+     * Vector storing the row pointers indicating the start of each row.
+     */
     std::vector<size_t> m_row_ptr;
 
-
+    /**
+     * Pointer to the non-zero values of the matrix.
+     */
     T* m_ptr_data;
+
     size_t* m_ptr_col_ind;
 
-
+    /**
+     * Default constructor. Creates an empty matrix.
+     */
     CSRMatrix();
-    CSRMatrix
-    (
+
+    /**
+     * @brief Constructor for the CSRMatrix class.
+     *
+     * @param rows The number of rows in the matrix.
+     * @param cols The number of columns in the matrix.
+     * @param data Vector storing the non-zero values of the matrix.
+     * @param col_ind Vector storing the column indices of the non-zero values.
+     * @param row_ptr Vector storing the row pointers indicating the start of
+     * each row.
+     */
+    CSRMatrix(
         size_t rows,
         size_t cols,
-        std::vector<T> data,
-        std::vector<size_t> col_ind,
-        std::vector<size_t> row_ptr
+        std::vector<T> &data,
+        std::vector<size_t> &col_ind,
+        std::vector<size_t> &row_ptr
     );
 
-
-    CSRMatrix
-    (
+    /**
+     * @brief Constructor for the CSRMatrix class.
+     *
+     * @param rows The number of rows in the matrix.
+     * @param cols The number of columns in the matrix.
+     * @param nnz The number of non-zero elements in the matrix.
+     * @param data Pointer to the non-zero values of the matrix.
+     * @param col_ind Pointer to the column indices of the non-zero values.
+     * @param row_ptr Pointer to the row pointers indicating the start of each
+     * row.
+     */
+    CSRMatrix(
         size_t rows,
         size_t cols,
         size_t nnz,
@@ -460,47 +482,109 @@ public:
         size_t *row_ptr
     );
 
+    /**
+     * @brief Constructor for the CSRMatrix class.
+     *
+     * @param matrix The dense matrix to convert to CSR format.
+     */
+    explicit CSRMatrix(Matrix<T> matrix);
 
-    CSRMatrix(Matrix<T> matrix);
-
-
+    /**
+     * @brief Copy constructor for the CSRMatrix class.
+     *
+     * @param other The CSRMatrix object to be copied.
+     */
     CSRMatrix(const CSRMatrix<T>& other);
+
+    /**
+     * @brief Move constructor for the CSRMatrix class.
+     *
+     * @param other The CSRMatrix object to be moved.
+     */
     CSRMatrix(CSRMatrix<T>&& other) noexcept;
+
+    /**
+     * @brief Assignment operator for the CSRMatrix class.
+     *
+     * @param other The CSRMatrix object to be assigned.
+     *
+     * @return Reference to the assigned CSRMatrix object.
+     */
     CSRMatrix<T>& operator=(const CSRMatrix<T>& other);
 
-    // Get the value at the specified row and column
+    /**
+     * Accesses the element at the specified row and column index in the matrix
+     * (const version).
+     *
+     * @param i The row index.
+     * @param j The column index.
+     *
+     * @return The value of the element at the specified position.
+     */
     inline const T operator()(size_t i, size_t j) const
     {
-        for (size_t i = m_row_ptr[i]; i < m_row_ptr[i + 1]; i++)
+        for (size_t k = m_row_ptr[i]; k < m_row_ptr[i + 1]; k++)
         {
-            if (m_col_ind[i] == j)
+            if (m_col_ind[k] == j)
             {
-                return m_data[i];
+                return m_data[k];
             }
         }
         return (T)0;
     }
 
+    /**
+     * @brief Returns a pointer to the beginning of the column indices for the
+     * specified row.
+     *
+     * @param i The index of the row.
+     *
+     * @return Pointer to the beginning of the column indices for the specified
+     * row.
+     */
     size_t* begin_col(size_t i) const
     {
         return m_ptr_col_ind + m_row_ptr[i];
     }
 
+    /**
+     * @brief Returns a pointer to the end of the column indices for the
+     * specified row.
+     *
+     * @param i The index of the row.
+     *
+     * @return Pointer to the end of the column indices for the specified row.
+     */
     size_t* end_col(size_t i) const
     {
         return m_ptr_col_ind + m_row_ptr[i + 1];
     }
 
+    /**
+     * @brief Returns a pointer to the beginning of the non-zero values for the
+     * specified row.
+     *
+     * @param i The index of the row.
+     *
+     * @return Pointer to the beginning of the non-zero values for the
+     * specified row.
+     */
     T* begin_data(size_t i) const
     {
         return m_ptr_data + m_row_ptr[i];
     }
 
+    /**
+     * @brief Returns a pointer to the end of the non-zero values for the
+     * specified row.
+     *
+     * @param i The index of the row.
+     * @return Pointer to the end of the non-zero values for the specified row.
+     */
     T* end_data(size_t i) const
     {
         return m_ptr_data + m_row_ptr[i + 1];
     }
-
 
     /**
      * @brief Normalize each row of the matrix using the L2 norm.
@@ -510,9 +594,11 @@ public:
      */
     void normalize();
 
-
+    /**
+     *  This function does not modify the current object. It is provided for
+     *  compatibility purposes.
+     */
     void deep_copy() {}
-
 
     /**
      * Returns the number of rows in the matrix.
@@ -520,7 +606,6 @@ public:
      * @return The number of rows.
      */
     size_t nrows() const { return m_rows; }
-
 
     /**
      * Returns the number of columns in the matrix.
@@ -545,13 +630,12 @@ CSRMatrix<T>::CSRMatrix()
 
 
 template <class T>
-CSRMatrix<T>::CSRMatrix
-(
+CSRMatrix<T>::CSRMatrix(
     size_t rows,
     size_t cols,
-    std::vector<T> data,
-    std::vector<size_t> col_ind,
-    std::vector<size_t> row_ptr
+    std::vector<T> &data,
+    std::vector<size_t> &col_ind,
+    std::vector<size_t> &row_ptr
 )
     : m_rows(rows)
     , m_cols(cols)
@@ -565,8 +649,7 @@ CSRMatrix<T>::CSRMatrix
 
 
 template <class T>
-CSRMatrix<T>::CSRMatrix
-(
+CSRMatrix<T>::CSRMatrix(
     size_t rows,
     size_t cols,
     size_t nnz,
@@ -580,6 +663,7 @@ CSRMatrix<T>::CSRMatrix
     , m_col_ind(col_ind, col_ind + nnz)
     , m_row_ptr(row_ptr, row_ptr + rows + 1)
     , m_ptr_data(&m_data[0])
+    , m_ptr_col_ind(&m_col_ind[0])
 {
 }
 
@@ -729,12 +813,21 @@ struct Candidate
 
 
 /*
- * @brief A template class representing a heap data structure.
+ * @brief A template class representing a maximum heap data structure.
  */
 template<class T>
 class Heap
 {
+
+private:
+
+    /*
+     * The underlying priority queue used to implement the heap.
+     */
+    std::priority_queue<T> heap;
+
 public:
+
     /*
      * Pushes a new element into the heap.
      *
@@ -767,16 +860,10 @@ public:
         return heap.empty();
     }
 
-private:
-    /*
-     * The underlying priority queue used to implement the heap.
-     */
-    std::priority_queue<T> heap;
 };
 
 
-
-/**
+/*
  * @brief A cache-friendly implementation of a list of maximum heaps.
  *
  * The HeapList class provides a cache-friendly representation of multiple
@@ -789,24 +876,27 @@ private:
 template <class KeyType>
 class HeapList
 {
+
 private:
-    /**
+
+    /*
      * Number of heaps.
      */
     size_t n_heaps;
 
-    /**
+    /*
      * Number of nodes.
      */
     size_t n_nodes;
 
 public:
-    /**
+
+    /*
      * Matrix storing indices of nodes in the heaps.
      */
     Matrix<int> indices;
 
-    /**
+    /*
      * Matrix storing keys associated with nodes.
      */
     Matrix<KeyType> keys;
@@ -819,12 +909,12 @@ public:
      */
     Matrix<char> flags;
 
-    /**
+    /*
      * Default constructor. Creates an empty HeapList.
      */
     HeapList() : n_heaps(0), n_nodes(0) {}
 
-    /**
+    /*
      * Constructor that initializes the HeapList with specified parameters.
      *
      * @param n_heaps The number of heaps.
@@ -838,9 +928,10 @@ public:
         , indices(n_heaps, n_nodes, NONE)
         , keys(n_heaps, n_nodes, key0)
         , flags(n_heaps, n_nodes, flag0)
-        {}
+    {
+    }
 
-    /**
+    /*
      * Constructor that initializes the HeapList with specified parameters,
      * using the same initial key value for all nodes and with no flags.
      *
@@ -854,46 +945,49 @@ public:
         , indices(n_heaps, n_nodes, NONE)
         , keys(n_heaps, n_nodes, key0)
         , flags(0, 0)
-        {}
+    {
+    }
 
-    /**
+    /*
      * Retrieves the number of heaps in the HeapList.
      *
      * @return The number of heaps.
      */
-    size_t nheaps() const {return n_heaps;}
+    size_t nheaps() const { return n_heaps; }
 
-    /**
+    /*
      * Retrieves the number of nodes in each heap of the HeapList.
      *
      * @return The number of nodes in each heap.
      */
-    size_t nnodes() const {return n_nodes;}
+    size_t nnodes() const { return n_nodes; }
 
-    /**
+    /*
      * Checks if the HeapList has no flags associated with the nodes.
      *
      * @return True if the HeapList has no flags, false otherwise.
      */
     bool noflags() const { return flags.nrows() == 0; }
 
-    /**
+    /*
      * Retrieves the maximum key value in the specified heap.
      *
      * @param i The index of the heap.
+     *
      * @return The maximum key value in the heap.
      */
     KeyType max(size_t i) const { return keys(i, 0); }
 
-    /**
-     * Retrieves the number of non none nodes in the specified heap.
+    /*
+     * Retrieves the number of non-'NONE' nodes in the specified heap.
      *
      * @param i The index of the heap.
-     * @return The number of non none nodes of the heap.
+     *
+     * @return The number of non-'NONE' nodes of the heap.
      */
     size_t size(size_t i) const;
 
-    /**
+    /*
      * Pushes a node with the specified index, key, and flag into the
      * specified heap if its key is smaller and it is not already in the heap.
      *
@@ -901,36 +995,37 @@ public:
      * @param idx The index of the node.
      * @param key The key associated with the node.
      * @param flag The flag associated with the node.
+     *
      * @return 1 if the node was added to the heap, 0 otherwise.
      */
     int checked_push(size_t i, int idx, KeyType key, char flag);
 
-    /**
+    /*
      * Pushes a node with the specified index, key, and flag into the
      * specified heap if its key is smaller and it is not already in the heap.
      *
      * @param i The index of the heap.
      * @param idx The index of the node.
      * @param key The key associated with the node.
+     *
      * @return 1 if the node was added to the heap, 0 otherwise.
      */
     int checked_push(size_t i, int idx, KeyType key);
 
-    /**
+    /*
      * Performs a "siftdown" operation on the specified heap starting from the
      * given index.
      *
      * The "siftdown" operation descends the top node down the heap by swapping
-     * values until the maximum heap criterion is met or "stop" is reached.
+     * values until the maximum heap criterion is met or 'stop' is reached.
      *
      * @param i The index of the heap to perform the siftdown operation on.
      * @param stop The index at which to stop the siftdown operation.
      */
     void siftdown(size_t i, size_t stop);
 
-    /**
+    /*
      * @brief Sorts all heaps in ascending key order.
-     * given index.
      *
      * As the heap criterion is already met only the second part of the
      * "Heapsort" algorithm is executed.
@@ -971,14 +1066,12 @@ void HeapList<KeyType>::siftdown(size_t i, size_t stop)
     int idx = indices(i, 0);
 
     size_t current = 0;
-    size_t left_child;
-    size_t right_child;
     size_t swap;
 
     while (true)
     {
-        left_child = 2*current + 1;
-        right_child = left_child + 1;
+        size_t left_child = 2*current + 1;
+        size_t right_child = left_child + 1;
 
         if (left_child >= stop)
         {
@@ -1048,14 +1141,12 @@ int HeapList<KeyType>::checked_push(size_t i, int idx, KeyType key, char flag)
     // Siftdown: Descend the heap, swapping values until the max heap
     // criterion is met.
     size_t current = 0;
-    size_t left_child;
-    size_t right_child;
     size_t swap;
 
     while (true)
     {
-        left_child = 2*current + 1;
-        right_child = left_child + 1;
+        size_t left_child = 2*current + 1;
+        size_t right_child = left_child + 1;
 
         if (left_child >= n_nodes)
         {
@@ -1130,14 +1221,12 @@ int HeapList<KeyType>::checked_push(size_t i, int idx, KeyType key)
     // Siftdown: Descend the heap, swapping values until the max heap
     // criterion is met.
     size_t current = 0;
-    size_t left_child;
-    size_t right_child;
     size_t swap;
 
     while (true)
     {
-        left_child = 2*current + 1;
-        right_child = left_child + 1;
+        size_t left_child = 2*current + 1;
+        size_t right_child = left_child + 1;
 
         if (left_child >= n_nodes)
         {
@@ -1198,21 +1287,14 @@ size_t HeapList<KeyType>::size(size_t i) const
 }
 
 
-/**
- * @brief Returns number of non-none matrix elements.
- */
-int non_none_cnt(std::vector<std::vector<int>> matrix);
-
-
 /*
  * Auxiliary function for recursively printing a binary Heap.
  */
 template <class KeyType>
-void _add_heap_from_to_stream
-(
+void _add_heap_from_to_stream(
     std::ostream &out,
-    std::string prefix,
-    HeapList<KeyType> heaplist,
+    const std::string &prefix,
+    HeapList<KeyType> &heaplist,
     size_t i,
     size_t from,
     char is_left
@@ -1244,14 +1326,14 @@ void _add_heap_from_to_stream
  * Auxiliary function for printing a binary Heap.
  */
 template <class KeyType>
-void add_heap_to_stream(std::ostream &out, HeapList<KeyType> heaplist, size_t i)
+void add_heap_to_stream(std::ostream &out, HeapList<KeyType> &heaplist, size_t i)
 {
     out << i << " [size=" << heaplist.nnodes() << "]\n";
     _add_heap_from_to_stream(out, "    ", heaplist, i, 0, false);
 }
 
 
-/**
+/*
  * @brief Prints a HeapList<KeyType> object to an output stream.
  */
 template <class KeyType>
@@ -1276,6 +1358,9 @@ std::ostream& operator<<(std::ostream &out, HeapList<KeyType> &heaplist)
 void print_map(Matrix<float> matrix);
 
 
+/*
+ * @brief Prints a vector object to an output stream.
+ */
 template <class T>
 std::ostream& operator<<(std::ostream &out, const std::vector<T> &vec)
 {
@@ -1328,10 +1413,9 @@ std::ostream& operator<<(std::ostream &out, NNUpdate &update);
 
 
 /*
- * @brief Prints a std::vector<NNUpdate> object to an output stream.
+ * @brief Prints a vector of NNUpdate objects to an output stream.
  */
 std::ostream& operator<<(std::ostream &out, std::vector<NNUpdate> &updates);
-
 
 
 } // namespace nndescent
