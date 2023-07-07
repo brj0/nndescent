@@ -1,6 +1,6 @@
 """
- Olivetty faces is a 400x4096 image dataset useful for quick checking
- and debugging.
+Olivetty faces is a 400x4096 image dataset useful for quick checking
+and debugging.
 """
 
 import os

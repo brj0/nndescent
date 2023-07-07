@@ -1,0 +1,9 @@
+# To upload this project to PyPI, follow these steps:
+#
+# python setup.py sdist
+# twine upload dist/*
+#
+# When prompted for the username, provide __token__
+
+# Includes the header files in the resulting .gz file for PyPI
+include src/*.h

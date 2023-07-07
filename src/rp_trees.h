@@ -135,118 +135,13 @@ struct RPTNode
 };
 
 
-/**
+/*
  * @brief Random Projection Tree class.
  */
 class RPTree
 {
 
 private:
-
-public:
-
-    /*
-     * The maximum number of points in a leaf node.
-     */
-    size_t leaf_size;
-
-    /*
-     * The number of leaf nodes in the tree.
-     */
-    size_t n_leaves;
-
-    /*
-     * The nodes of the tree.
-     */
-    std::vector<RPTNode> nodes;
-
-    /*
-     * @brief Default constructor builds an empty tree.
-     */
-    RPTree() {}
-
-    /*
-     * @brief Constructs an rp tree with fixed leaf size.
-     */
-    explicit RPTree(size_t leaf_size)
-        : leaf_size(leaf_size)
-        , n_leaves(0)
-    {
-    }
-
-    /*
-     * @brief Add a leaf node to the tree.
-     * @param indices The indices of the data points in the leaf node.
-     */
-    void add_leaf(std::vector<int> indices)
-    {
-        RPTNode node(NONE, NONE, FLOAT_MAX, {}, indices);
-        nodes.push_back(node);
-        ++n_leaves;
-    }
-
-    /*
-     * @brief Get the index of the last added node.
-     *
-     * @return The index of the last added node.
-     */
-    size_t get_index() const
-    {
-        return nodes.size() - 1;
-    }
-
-    /*
-     * @brief Add an internal node to the tree, containing no indices.
-     */
-    void add_node(
-        size_t left_subtree,
-        size_t right_subtree,
-        float offset,
-        std::vector<float> &hyperplane
-    )
-    {
-        RPTNode node(left_subtree, right_subtree, offset, hyperplane, {});
-        nodes.push_back(node);
-    }
-
-    /*
-     * @brief Add an internal node to the tree, containing no indices (sparse
-     * case).
-     */
-    void add_node(
-        size_t left_subtree,
-        size_t right_subtree,
-        float offset,
-        std::vector<size_t> &hyperplane_ind,
-        std::vector<float> &hyperplane
-    )
-    {
-        RPTNode node(
-            left_subtree,
-            right_subtree,
-            offset,
-            hyperplane_ind,
-            hyperplane,
-            {}
-        );
-        nodes.push_back(node);
-    }
-
-    /**
-     * @brief Perform a nearest neighbor query on the tree.
-     *
-     * @param query_data The query data containing the query point.
-     * @param row The index of the query point in the query data.
-     * @param rng_state The random state used for generating random numbers.
-     *
-     * @return The indices of the nearest neighbors.
-     */
-    template<class MatrixType>
-    std::vector<int> get_leaf(
-        const MatrixType &query_data,
-        size_t row,
-        RandomState &rng_state
-    ) const;
 
     /*
      * @brief Perform a nearest neighbor query on the tree.
@@ -351,6 +246,111 @@ public:
         }
         return nodes[index].indices;
     }
+
+public:
+
+    /*
+     * The maximum number of points in a leaf node.
+     */
+    size_t leaf_size;
+
+    /*
+     * The number of leaf nodes in the tree.
+     */
+    size_t n_leaves;
+
+    /*
+     * The nodes of the tree.
+     */
+    std::vector<RPTNode> nodes;
+
+    /*
+     * @brief Default constructor builds an empty tree.
+     */
+    RPTree() {}
+
+    /*
+     * @brief Constructs an rp tree with fixed leaf size.
+     */
+    explicit RPTree(size_t leaf_size)
+        : leaf_size(leaf_size)
+        , n_leaves(0)
+    {
+    }
+
+    /*
+     * @brief Add a leaf node to the tree.
+     * @param indices The indices of the data points in the leaf node.
+     */
+    void add_leaf(std::vector<int> indices)
+    {
+        RPTNode node(NONE, NONE, FLOAT_MAX, {}, indices);
+        nodes.push_back(node);
+        ++n_leaves;
+    }
+
+    /*
+     * @brief Get the index of the last added node.
+     *
+     * @return The index of the last added node.
+     */
+    size_t get_index() const
+    {
+        return nodes.size() - 1;
+    }
+
+    /*
+     * @brief Add an internal node to the tree, containing no indices.
+     */
+    void add_node(
+        size_t left_subtree,
+        size_t right_subtree,
+        float offset,
+        std::vector<float> &hyperplane
+    )
+    {
+        RPTNode node(left_subtree, right_subtree, offset, hyperplane, {});
+        nodes.push_back(node);
+    }
+
+    /*
+     * @brief Add an internal node to the tree, containing no indices (sparse
+     * case).
+     */
+    void add_node(
+        size_t left_subtree,
+        size_t right_subtree,
+        float offset,
+        std::vector<size_t> &hyperplane_ind,
+        std::vector<float> &hyperplane
+    )
+    {
+        RPTNode node(
+            left_subtree,
+            right_subtree,
+            offset,
+            hyperplane_ind,
+            hyperplane,
+            {}
+        );
+        nodes.push_back(node);
+    }
+
+    /*
+     * @brief Perform a nearest neighbor query on the tree.
+     *
+     * @param query_data The query data containing the query point.
+     * @param row The index of the query point in the query data.
+     * @param rng_state The random state used for generating random numbers.
+     *
+     * @return The indices of the nearest neighbors.
+     */
+    template<class MatrixType>
+    std::vector<int> get_leaf(
+        const MatrixType &query_data,
+        size_t row,
+        RandomState &rng_state
+    ) const;
 
     /*
      * @brief Calculate the score of the tree in comparison to the nearest
@@ -655,7 +655,7 @@ RPTree build_rp_tree(
 }
 
 
-/**
+/*
  * @brief Builds a forest of random projection trees.
  *
  * This function builds a vector of random projection trees. The forest
@@ -708,9 +708,7 @@ std::vector<RPTree> make_forest(
  *
  * @return A matrix containing the extracted leaves.
  */
-Matrix<int> get_leaves_from_forest(
-    std::vector<RPTree> &forest
-);
+Matrix<int> get_leaves_from_forest( std::vector<RPTree> &forest);
 
 
 /*

@@ -1,5 +1,5 @@
 """
-Simple toy dataset.
+Very simple dataset to illustrate the functionality of the library.
 """
 
 import numpy as np

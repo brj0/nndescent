@@ -54,9 +54,9 @@ namespace nndescent
 
 
 /**
- * @version 1.0.0
+ * @version 1.0.3
  */
-const std::string PROJECT_VERSION = "1.0.0";
+const std::string PROJECT_VERSION = "1.0.3";
 
 
 // Constants
@@ -122,7 +122,7 @@ void correct_distances(
 float recall_accuracy(Matrix<int> apx, Matrix<int> ect);
 
 
- /**
+/**
  * @brief Structure representing the parameters for NNDescent.
  *
  * This structure holds the parameters with default values for configuring the
@@ -210,6 +210,120 @@ private:
      * Flag indicating whether the training data is sparse or dense.
      */
     bool is_sparse;
+
+    /*
+     * @brief Set the parameters for NNDescent.
+     */
+    void set_parameters(Parms &parms);
+
+    /*
+     * @brief Sets the distance template and performs either NN algorithm
+     * indexing/training or a query.
+     *
+     * Sets the distance template based on the specified metric and performs
+     * either NN algorithm indexing or starts a query, depending on the
+     * 'perform_query' flag.
+     */
+    template<class MatrixType>
+    void set_dist_and_start_nn(
+        bool perform_query=false,
+        const MatrixType &query_data=MatrixType(),
+        int query_k=0,
+        float query_epsilon=0
+    );
+
+    /*
+     * @brief Starts the nearest neighbor search algorithm.
+     *
+     * This function starts the nearest neighbor search algorithm using the
+     * specified distance metric and performs either indexing/training or a
+     * query based on the 'perform_query' flag.
+     */
+    template<class MatrixType, class DistType>
+    void start_nn(
+        DistType &dist,
+        bool perform_query,
+        const MatrixType &query_data,
+        int query_k,
+        float query_epsilon
+    );
+
+    /*
+     * @brief Performs the NN-d algorithm for nearest neighbor search on the
+     * training data.
+     */
+    template<class MatrixType, class DistType>
+    void run_nn_descent(const MatrixType &train_data, const DistType &dist);
+
+    /*
+     * @brief Perform k-nearest neighbors search using brute force, used for
+     * debugging purposes.
+     */
+    template<class MatrixType, class DistType>
+    void start_brute_force(const MatrixType &train_data, const DistType &dist);
+
+    /*
+     * @brief Prepare the NNDescent object for querying.
+     *
+     * This function is invoked the first time 'query' is called to construct
+     * a 'search_tree' and a 'pruned search_graph'.
+     */
+    template<class DistType>
+    void prepare(const DistType &dist);
+
+    /*
+     * @brief Query the training data for the k nearest neighbors.
+     *
+     * This function is called by the main 'query' function with the appropriate
+     * types for MatrixType and DistType. It performs the actual querying of the
+     * training data for the k nearest neighbors of the provided query points.
+     * The indices and distances of the nearest neighbors are saved in the
+     * respective member variables: query_indices and query_distances.
+     *
+     * @param train_data Matrix of training data points.
+     * @param query_data Matrix of query points.
+     * @param dist Distance metric object.
+     * @param k Number of nearest neighbors to return.
+     * @param epsilon Controls the trade-off between accuracy and search cost.
+     * Larger values produce more accurate results at larger computational
+     * cost. Values should be in the range 0.0 to 0.5, but typically not exceed
+     * 0.3 without good reason.
+     */
+    template<class MatrixType, class DistType>
+    void query(
+        const MatrixType &train_data,
+        const MatrixType &query_data,
+        DistType &dist,
+        int k,
+        float epsilon
+    );
+
+    /*
+     * @brief Perform k-nearest neighbors search using brute force for query
+     * data.
+     */
+    template<class MatrixType, class DistType>
+    void query_brute_force(
+        const MatrixType &train_data,
+        const MatrixType &query_data,
+        const DistType &dist,
+        int k
+    );
+
+    /*
+     * @brief Get the data matrix.
+     *
+     * This function returns a pointer to the data matrix. The type of the matrix
+     * returned depends on whether the data is dense or sparse. If the data is dense,
+     * the function returns a pointer to the dense data matrix. If the data is sparse,
+     * the function returns a pointer to the compressed sparse row (CSR) data matrix.
+     *
+     * @tparam MatrixType The type of the data matrix (dense or sparse).
+     *
+     * @return A pointer to the data matrix.
+     */
+    template<class MatrixType>
+    MatrixType* get_data();
 
 public:
 
@@ -397,93 +511,6 @@ public:
      */
     NNDescent(CSRMatrix<float> &train_data, Parms &parms);
 
-    /*
-     * @brief Set the parameters for NNDescent.
-     */
-    void set_parameters(Parms &parms);
-
-    /*
-     * @brief Sets the distance template and performs either NN algorithm
-     * indexing/training or a query.
-     *
-     * Sets the distance template based on the specified metric and performs
-     * either NN algorithm indexing or starts a query, depending on the
-     * 'perform_query' flag.
-     */
-    template<class MatrixType>
-    void set_dist_and_start_nn(
-        bool perform_query=false,
-        const MatrixType &query_data=MatrixType(),
-        int query_k=0,
-        float query_epsilon=0
-    );
-
-    /*
-     * @brief Starts the nearest neighbor search algorithm.
-     *
-     * This function starts the nearest neighbor search algorithm using the
-     * specified distance metric and performs either indexing/training or a
-     * query based on the 'perform_query' flag.
-     */
-    template<class MatrixType, class DistType>
-    void start_nn(
-        DistType &dist,
-        bool perform_query,
-        const MatrixType &query_data,
-        int query_k,
-        float query_epsilon
-    );
-
-    /*
-     * @brief Performs the NN-d algorithm for nearest neighbor search on the
-     * training data.
-     */
-    template<class MatrixType, class DistType>
-    void run_nn_descent(const MatrixType &train_data, const DistType &dist);
-
-    /*
-     * @brief Perform k-nearest neighbors search using brute force, used for
-     * debugging purposes.
-     */
-    template<class MatrixType, class DistType>
-    void start_brute_force(const MatrixType &train_data, const DistType &dist);
-
-    /*
-     * @brief Prepare the NNDescent object for querying.
-     *
-     * This function is invoked the first time 'query' is called to construct
-     * a 'search_tree' and a 'pruned search_graph'.
-     */
-    template<class DistType>
-    void prepare(const DistType &dist);
-
-    /*
-     * @brief Query the training data for the k nearest neighbors.
-     *
-     * This function is called by the main 'query' function with the appropriate
-     * types for MatrixType and DistType. It performs the actual querying of the
-     * training data for the k nearest neighbors of the provided query points.
-     * The indices and distances of the nearest neighbors are saved in the
-     * respective member variables: query_indices and query_distances.
-     *
-     * @param train_data Matrix of training data points.
-     * @param query_data Matrix of query points.
-     * @param dist Distance metric object.
-     * @param k Number of nearest neighbors to return.
-     * @param epsilon Controls the trade-off between accuracy and search cost.
-     * Larger values produce more accurate results at larger computational
-     * cost. Values should be in the range 0.0 to 0.5, but typically not exceed
-     * 0.3 without good reason.
-     */
-    template<class MatrixType, class DistType>
-    void query(
-        const MatrixType &train_data,
-        const MatrixType &query_data,
-        DistType &dist,
-        int k,
-        float epsilon
-    );
-
     /**
      * @brief Query the training data for the k nearest neighbors.
      *
@@ -506,33 +533,6 @@ public:
         int k=DEFAULT_K,
         float epsilon=DEFAULT_EPSILON
     );
-
-    /*
-     * @brief Perform k-nearest neighbors search using brute force for query
-     * data.
-     */
-    template<class MatrixType, class DistType>
-    void query_brute_force(
-        const MatrixType &train_data,
-        const MatrixType &query_data,
-        const DistType &dist,
-        int k
-    );
-
-    /*
-     * @brief Get the data matrix.
-     *
-     * This function returns a pointer to the data matrix. The type of the matrix
-     * returned depends on whether the data is dense or sparse. If the data is dense,
-     * the function returns a pointer to the dense data matrix. If the data is sparse,
-     * the function returns a pointer to the compressed sparse row (CSR) data matrix.
-     *
-     * @tparam MatrixType The type of the data matrix (dense or sparse).
- *
-     * @return A pointer to the data matrix.
-     */
-    template<class MatrixType>
-    MatrixType* get_data();
 
     /*
      * @brief Prints a the parameters of an NNDescent object to an output

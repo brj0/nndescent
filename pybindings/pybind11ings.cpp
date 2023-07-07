@@ -19,7 +19,7 @@ using namespace nndescent;
 const Parms DEFAULT_PARMS;
 
 
-/**
+/*
  * @brief Convert a nndescent::Matrix<T> object to a NumPy array in Python.
  */
 template<class T>
@@ -71,7 +71,7 @@ CSRMatrix<T> to_csr_matrix(py::object &py_obj)
 }
 
 
- /**
+/**
  * @brief Wrapper class for binding the NND (Nearest Neighbor Descent)
  * algorithm in Python.
  */

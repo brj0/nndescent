@@ -46,6 +46,22 @@ Please note that not all distances have undergone thorough testing. Therefore, i
 
 ## Installation
 
+### From PyPI
+
+You can install nndescent directly from PyPI using pip:
+
+```sh
+pip install nndescent
+```
+
+If you want to run the examples in `tests`, additional packages are needed. You can install them manually or install nndescent with the full option:
+
+```sh
+pip install nndescent[full]
+```
+
+### From Source
+
 1. Clone the repository:
 
 ```sh
@@ -53,7 +69,7 @@ git clone https://github.com/brj0/nndescent.git
 cd nndescent
 ```
 
-2. The project can by build with:
+2. Build and install the package:
 
 ```sh
 pip install .
@@ -70,7 +86,6 @@ pip install .[full]
 ```sh
 python tests/make_test_data.py
 ```
-
 
 ## Usage
 

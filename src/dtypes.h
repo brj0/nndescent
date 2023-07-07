@@ -1001,8 +1001,8 @@ public:
     int checked_push(size_t i, int idx, KeyType key, char flag);
 
     /*
-     * Pushes a node with the specified index, key, and flag into the
-     * specified heap if its key is smaller and it is not already in the heap.
+     * Pushes a node with the specified index and key into the specified heap
+     * if its key is smaller and it is not already in the heap.
      *
      * @param i The index of the heap.
      * @param idx The index of the node.

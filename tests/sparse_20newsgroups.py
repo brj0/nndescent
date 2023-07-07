@@ -1,5 +1,6 @@
 """
-Simple toy dataset.
+20newsgroups is a sparse dataset of dimension 11'314x130'107 (train) and
+7'532x130'107 (test)
 """
 
 import os

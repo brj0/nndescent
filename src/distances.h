@@ -2201,7 +2201,6 @@ float dot(Iter0 first0, Iter0 last0, Iter1 first1)
 }
 
 
-
 /*
  * @brief Sparse dot.
  */

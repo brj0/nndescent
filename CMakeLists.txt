@@ -1,19 +1,31 @@
 cmake_minimum_required(VERSION 3.10)
 
 project(nndescent
-    VERSION 0.0.0
+    VERSION 1.0.3
     LANGUAGES CXX
     DESCRIPTION "A C++ implementation of the nearest neighbour descent algorithm")
 
 set(CMAKE_CXX_STANDARD 11)
 
-# Standard mode including all distance functions (slow)
-set(CMAKE_CXX_FLAGS
+
+# Enable the fast mode option that uses only euclidean and cosine metrics
+option(FAST_MODE "Enable fast compile mode" OFF)
+
+# Standard mode includes all distance functions (slow)
+set(STANDARD_CXX_FLAGS
     "-Wall -g -pg -Ofast -DALL_METRICS -march=native -flto -fno-math-errno -fopenmp -pg")
 
-# Debug compile mode (only euclidean/cosine)
-# set(CMAKE_CXX_FLAGS
-    # "-Wall -g -pg -Ofast -march=native -flto -fno-math-errno -fopenmp -pg")
+# Fast mode (only euclidean/cosine distance)
+set(FAST_CXX_FLAGS
+    "-Wall -g -pg -Ofast -march=native -flto -fno-math-errno -fopenmp -pg")
+
+# Select the appropriate compiler flags
+if(FAST_MODE)
+    set(CMAKE_CXX_FLAGS "${FAST_CXX_FLAGS}")
+else()
+    set(CMAKE_CXX_FLAGS "${STANDARD_CXX_FLAGS}")
+endif()
+
 
 # Collect source files
 file(GLOB_RECURSE SRC_FILES src/*.cpp)
@@ -23,6 +35,7 @@ add_library(nndescent STATIC ${SRC_FILES})
 
 # Source code
 target_include_directories(nndescent PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 
 # Tests
 add_executable(test_distances tests/test_distances.cpp)
