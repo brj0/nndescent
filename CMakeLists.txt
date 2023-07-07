@@ -8,20 +8,20 @@ project(nndescent
 set(CMAKE_CXX_STANDARD 11)
 
 
-# Enable the fast mode option that uses only euclidean and cosine metrics
-option(FAST_MODE "Enable fast compile mode" OFF)
+# Enable the subset mode option for faster compile time
+option(SUBSET_MODE "Enable subset compile mode" OFF)
 
-# Standard mode includes all distance functions (slow)
+# Standard mode includes all distance functions (slower)
 set(STANDARD_CXX_FLAGS
     "-Wall -g -pg -Ofast -DALL_METRICS -march=native -flto -fno-math-errno -fopenmp -pg")
 
-# Fast mode (only euclidean/cosine distance)
-set(FAST_CXX_FLAGS
+# Subset mode (only subset of metrics)
+set(SUBSET_CXX_FLAGS
     "-Wall -g -pg -Ofast -march=native -flto -fno-math-errno -fopenmp -pg")
 
 # Select the appropriate compiler flags
-if(FAST_MODE)
-    set(CMAKE_CXX_FLAGS "${FAST_CXX_FLAGS}")
+if(SUBSET_MODE)
+    set(CMAKE_CXX_FLAGS "${SUBSET_CXX_FLAGS}")
 else()
     set(CMAKE_CXX_FLAGS "${STANDARD_CXX_FLAGS}")
 endif()
