@@ -57,7 +57,7 @@ void print_map(Matrix<float> matrix)
 }
 
 
-std::ostream& operator<<(std::ostream &out, NNUpdate &update)
+std::ostream& operator<<(std::ostream &out, const NNUpdate &update)
 {
     out << "(idx0=" << update.idx0
         << ", idx1=" << update.idx1
@@ -67,7 +67,7 @@ std::ostream& operator<<(std::ostream &out, NNUpdate &update)
 }
 
 
-std::ostream& operator<<(std::ostream &out, std::vector<NNUpdate> &updates)
+std::ostream& operator<<(std::ostream &out, const std::vector<NNUpdate> &updates)
 {
     out << "[";
     for (size_t i = 0; i < updates.size(); ++i)

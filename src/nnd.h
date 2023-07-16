@@ -54,9 +54,9 @@ namespace nndescent
 
 
 /**
- * @version 1.0.3
+ * @version 1.0.4
  */
-const std::string PROJECT_VERSION = "1.0.3";
+const std::string PROJECT_VERSION = "1.0.4";
 
 
 // Constants
@@ -560,7 +560,7 @@ void NNDescent::query_brute_force(
         for (size_t idx_t = 0; idx_t < data_size; ++idx_t)
         {
             float d = dist(train_data, idx_t, query_data, idx_q);
-            query_nn.checked_push(idx_q, idx_t, d);
+            query_nn.simple_push(idx_q, idx_t, d);
         }
     }
     query_nn.heapsort();
@@ -830,12 +830,13 @@ void NNDescent::query(
         prepare(dist);
     }
     HeapList<float> query_nn(_query_data.nrows(), k, FLOAT_MAX);
+    #pragma omp parallel for num_threads(n_threads)
     for (size_t i = 0; i < query_nn.nheaps(); ++i)
     {
 
         // Initialization
         Heap<Candidate> search_candidates;
-        std::vector<int> visited(data_size, 0);
+        std::vector<bool> visited(data_size, 0);
         std::vector<int> initial_candidates = search_tree.get_leaf(
             _query_data, i, rng_state
         );
@@ -844,10 +845,9 @@ void NNDescent::query(
         {
             float d = dist(train_data, idx, _query_data, i);
             // Don't need to check as indices are guaranteed to be different.
-            // TODO implement push without check.
-            query_nn.checked_push(i, idx, d);
-            visited[idx] = 1;
+            query_nn.simple_push(i, idx, d);
             search_candidates.push({idx, d});
+            visited[idx] = 1;
         }
         int n_random_samples = k - initial_candidates.size();
         for (int j = 0; j < n_random_samples; ++j)
@@ -856,9 +856,9 @@ void NNDescent::query(
             if (!visited[idx])
             {
                 float d = dist(train_data, idx, _query_data, i);
-                query_nn.checked_push(i, idx, d);
-                visited[idx] = 1;
+                query_nn.simple_push(i, idx, d);
                 search_candidates.push({idx, d});
+                visited[idx] = 1;
             }
         }
 
@@ -867,9 +867,13 @@ void NNDescent::query(
         float distance_bound = (1.0f + epsilon) * query_nn.max(i);
         while (candidate.key < distance_bound)
         {
-            for (size_t j = 0; j < search_graph.nnodes(); ++j)
+            for (
+                auto it = search_graph.indices.begin(candidate.idx);
+                it != search_graph.indices.end(candidate.idx);
+                ++it
+            )
             {
-                int idx = search_graph.indices(candidate.idx, j);
+                int idx = *it;
                 if (idx == NONE)
                 {
                     break;
@@ -882,14 +886,13 @@ void NNDescent::query(
                 float d = dist(train_data, idx, _query_data, i);
                 if (d < distance_bound)
                 {
-                    query_nn.checked_push(i, idx, d);
+                    query_nn.simple_push(i, idx, d);
                     search_candidates.push({idx, d});
-
                     // Update bound
                     distance_bound = (1.0f + epsilon) * query_nn.max(i);
                 }
             }
-            // Find new nearest candidate point.
+            // The next candidate is the nearest among the search_candidates.
             if (search_candidates.empty())
             {
                 break;
@@ -899,7 +902,9 @@ void NNDescent::query(
                 candidate = search_candidates.pop();
             }
         }
+
     }
+
     query_nn.heapsort();
     query_indices = query_nn.indices;
     query_distances = query_nn.keys;

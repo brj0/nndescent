@@ -1013,6 +1013,18 @@ public:
     int checked_push(size_t i, int idx, KeyType key);
 
     /*
+     * Pushes a node with the specified index and key into the specified heap
+     * if its key is smaller.
+     *
+     * @param i The index of the heap.
+     * @param idx The index of the node.
+     * @param key The key associated with the node.
+     *
+     * @return 1 if the node was added to the heap, 0 otherwise.
+     */
+    int simple_push(size_t i, int idx, KeyType key);
+
+    /*
      * Performs a "siftdown" operation on the specified heap starting from the
      * given index.
      *
@@ -1280,6 +1292,75 @@ int HeapList<KeyType>::checked_push(size_t i, int idx, KeyType key)
 
 
 template <class KeyType>
+int HeapList<KeyType>::simple_push(size_t i, int idx, KeyType key)
+{
+    if (key >= keys(i, 0))
+    {
+        return 0;
+    }
+
+    // Siftdown: Descend the heap, swapping values until the max heap
+    // criterion is met.
+    size_t current = 0;
+    size_t swap;
+
+    while (true)
+    {
+        size_t left_child = 2*current + 1;
+        size_t right_child = left_child + 1;
+
+        if (left_child >= n_nodes)
+        {
+            break;
+        }
+        else if (right_child >= n_nodes)
+        {
+            if (keys(i, left_child) > key)
+            {
+                swap = left_child;
+            }
+            else
+            {
+                break;
+            }
+        }
+        else if (keys(i, left_child) >= keys(i, right_child))
+        {
+            if (keys(i, left_child) > key)
+            {
+                swap = left_child;
+            }
+            else
+            {
+                break;
+            }
+        }
+        else
+        {
+            if (keys(i, right_child) > key)
+            {
+                swap = right_child;
+            }
+            else
+            {
+                break;
+            }
+        }
+        indices(i, current) = indices(i, swap);
+        keys(i, current) = keys(i, swap);
+
+        current = swap;
+    }
+
+    // Insert node at current position.
+    indices(i, current) = idx;
+    keys(i, current) = key;
+
+    return 1;
+}
+
+
+template <class KeyType>
 size_t HeapList<KeyType>::size(size_t i) const
 {
     size_t count = count_if_not_equal(indices.begin(i), indices.end(i), NONE);
@@ -1409,13 +1490,13 @@ typedef struct
 /*
  * @brief Prints a NNUpdate object to an output stream.
  */
-std::ostream& operator<<(std::ostream &out, NNUpdate &update);
+std::ostream& operator<<(std::ostream &out, const NNUpdate &update);
 
 
 /*
  * @brief Prints a vector of NNUpdate objects to an output stream.
  */
-std::ostream& operator<<(std::ostream &out, std::vector<NNUpdate> &updates);
+std::ostream& operator<<(std::ostream &out, const std::vector<NNUpdate> &updates);
 
 
 } // namespace nndescent

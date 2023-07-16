@@ -16,7 +16,7 @@ template<>
 std::tuple<std::vector<int>, std::vector<int>, std::vector<float>, float>
 random_projection_split<EuclideanSplit>(
     const Matrix<float> &data,
-    std::vector<int> &indices,
+    const std::vector<int> &indices,
     RandomState &rng_state
 )
 {
@@ -136,7 +136,7 @@ template<>
 std::tuple<std::vector<int>, std::vector<int>, std::vector<float>, float>
 random_projection_split<AngularSplit>(
     const Matrix<float> &data,
-    std::vector<int> &indices,
+    const std::vector<int> &indices,
     RandomState &rng_state
 )
 {
@@ -295,7 +295,7 @@ std::tuple<
 >
 sparse_random_projection_split<EuclideanSplit>(
     const CSRMatrix<float> &data,
-    std::vector<int> &indices,
+    const std::vector<int> &indices,
     RandomState &rng_state
 )
 {
@@ -443,7 +443,7 @@ std::tuple<
 >
 sparse_random_projection_split<AngularSplit>(
     const CSRMatrix<float> &data,
-    std::vector<int> &indices,
+    const std::vector<int> &indices,
     RandomState &rng_state
 )
 {
@@ -616,7 +616,7 @@ sparse_random_projection_split<AngularSplit>(
 
 
 Matrix<int> get_leaves_from_forest(
-    std::vector<RPTree> &forest
+    const std::vector<RPTree> &forest
 )
 {
     size_t leaf_size = forest[0].leaf_size;

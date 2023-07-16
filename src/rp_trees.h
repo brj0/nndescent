@@ -159,7 +159,7 @@ private:
         size_t index = get_index();
         while (nodes[index].left != NONE)
         {
-            std::vector<float> hyperplane_vector = nodes[index].hyperplane;
+            const std::vector<float> &hyperplane_vector = nodes[index].hyperplane;
             float hyperplane_offset = nodes[index].offset;
 
             float margin = std::inner_product(
@@ -306,7 +306,7 @@ public:
         size_t left_subtree,
         size_t right_subtree,
         float offset,
-        std::vector<float> &hyperplane
+        const std::vector<float> &hyperplane
     )
     {
         RPTNode node(left_subtree, right_subtree, offset, hyperplane, {});
@@ -321,8 +321,8 @@ public:
         size_t left_subtree,
         size_t right_subtree,
         float offset,
-        std::vector<size_t> &hyperplane_ind,
-        std::vector<float> &hyperplane
+        const std::vector<size_t> &hyperplane_ind,
+        const std::vector<float> &hyperplane
     )
     {
         RPTNode node(
@@ -409,7 +409,7 @@ template<class SplitType>
 std::tuple<std::vector<int>, std::vector<int>, std::vector<float>, float>
 random_projection_split(
     const Matrix<float> &data,
-    std::vector<int> &indices,
+    const std::vector<int> &indices,
     RandomState &rng_state
 );
 
@@ -443,7 +443,7 @@ std::tuple<
 >
 sparse_random_projection_split(
     const CSRMatrix<float> &data,
-    std::vector<int> &indices,
+    const std::vector<int> &indices,
     RandomState &rng_state
 );
 
@@ -676,7 +676,7 @@ std::vector<RPTree> make_forest(
     const MatrixType &data,
     int n_trees,
     int leaf_size,
-    RandomState &rng_state
+    const RandomState &rng_state
 )
 {
     std::vector<RPTree> forest(n_trees);
@@ -708,7 +708,7 @@ std::vector<RPTree> make_forest(
  *
  * @return A matrix containing the extracted leaves.
  */
-Matrix<int> get_leaves_from_forest( std::vector<RPTree> &forest);
+Matrix<int> get_leaves_from_forest(const std::vector<RPTree> &forest);
 
 
 /*

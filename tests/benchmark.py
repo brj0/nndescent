@@ -258,15 +258,15 @@ ANNBEN = {
     # "deep": "deep-image-96-angular", # huge
     "fmnist": "fashion-mnist-784-euclidean",
     # "gist": "gist-960-euclidean", # huge
-    "glove25": "glove-25-angular",
-    "glove50": "glove-50-angular",
-    "glove100": "glove-100-angular",
-    "glove200": "glove-200-angular",
+    # "glove25": "glove-25-angular",
+    # "glove50": "glove-50-angular",
+    # "glove100": "glove-100-angular",
+    # "glove200": "glove-200-angular",
     # "kosark": "kosarak-jaccard", # url not working
     "mnist": "mnist-784-euclidean",
     # "movielens": "movielens10m-jaccard", # url not working
-    "nytimes": "nytimes-256-angular",
-    "sift": "sift-128-euclidean",
+    # "nytimes": "nytimes-256-angular",
+    # "sift": "sift-128-euclidean",
     # "lastfm": "lastfm-64-dot", # url not working
 }
 

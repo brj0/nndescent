@@ -41,8 +41,8 @@ else:
         "-flto",
         "-fno-math-errno",
         "-fopenmp",
-        "-g",
         "-march=native",
+        "-mtune=native",
     ]
 
 module = Extension(

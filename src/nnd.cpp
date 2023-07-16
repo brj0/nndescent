@@ -111,7 +111,7 @@ void update_by_leaves(
     {
         int block_start  = thread * block_size;
         int block_end = (thread + 1) * block_size;
-        block_end = (thread == n_threads) ? n_leaves : block_end;
+        block_end = (thread == n_threads - 1) ? n_leaves : block_end;
 
         for (int i = block_start; i < block_end; ++i)
         {
@@ -186,7 +186,7 @@ void sample_candidates(
     HeapList<float> &current_graph,
     HeapList<int> &new_candidates,
     HeapList<int> &old_candidates,
-    RandomState rng_state,
+    const RandomState &rng_state,
     int n_threads
 )
 {
@@ -363,7 +363,7 @@ std::vector<std::vector<NNUpdate>> generate_graph_updates(
  */
 int apply_graph_updates(
     HeapList<float> &current_graph,
-    std::vector<std::vector<NNUpdate>> &updates,
+    const std::vector<std::vector<NNUpdate>> &updates,
     int n_threads
 )
 {
@@ -825,8 +825,8 @@ void NNDescent::prepare(const DistType &dist)
         );
     }
 
-    size_t n_seach_cols = std::round(n_neighbors * pruning_degree_multiplier);
-    search_graph = HeapList<float>(data_size, n_seach_cols, FLOAT_MAX);
+    size_t n_search_cols = std::round(n_neighbors * pruning_degree_multiplier);
+    search_graph = HeapList<float>(data_size, n_search_cols, FLOAT_MAX);
 
     for (size_t i = 0; i < forward_graph.nheaps(); ++i)
     {
@@ -841,6 +841,7 @@ void NNDescent::prepare(const DistType &dist)
             }
         }
     }
+
     search_graph.heapsort();
 
     if (verbose)
@@ -851,6 +852,7 @@ void NNDescent::prepare(const DistType &dist)
                 + " edges for the search graph."
         );
     }
+
 }
 
 
@@ -867,7 +869,7 @@ void NNDescent::start_brute_force(
         for (size_t idx1 = 0; idx1 < train_data.nrows(); ++idx1)
         {
             float d = dist(train_data, idx0, idx1);
-            current_graph.checked_push(idx0, idx1, d);
+            current_graph.simple_push(idx0, idx1, d);
         }
     }
     current_graph.heapsort();

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 project(nndescent
-    VERSION 1.0.3
+    VERSION 1.0.4
     LANGUAGES CXX
     DESCRIPTION "A C++ implementation of the nearest neighbour descent algorithm")
 
